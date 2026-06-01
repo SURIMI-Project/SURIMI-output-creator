@@ -1,0 +1,171 @@
+{
+    "experiment_id": "3CD4786B-AABA-482E-9A2D-CAC4B2F6BAD6",
+    "start_date_time": "2013-01-01T00:00:00.000Z",
+    "end_date_time": "2013-01-01T00:00:00.000Z",
+    "sales_statistics_summary": {
+        "market_sales_statistics": [
+            {
+                "market_code": "ESARN",
+                "currency": "EUR",
+                "sales_statistics": [
+                    {
+                        "fleet_segment": {
+                            "gear_code": "Gear1"
+                        },
+                        "species": {
+                            "species_code": "PIL"
+                        },
+                        "quantity": { 
+                            "mean": 103.0,
+                            "p05": 2.0,
+                            "p95": 8.0
+                        },
+                        "value": { 
+                            "mean": 21322.23,
+                            "p05": 2.0,
+                            "p95": 8.0
+                        }
+                    },
+                    {
+                        "fleet_segment": {
+                            "gear_code": "Gear2"
+                        },
+                        "species": {
+                            "species_code": "BOG"
+                        },
+                        "quantity": { 
+                            "mean": 22.23,
+                            "p05": 2.0,
+                            "p95": 8.0
+                        },
+                        "value": { 
+                            "mean": 121322.23,
+                            "p05": 2.0,
+                            "p95": 8.0
+                        }
+                    },
+                    {
+                        "fleet_segment": {
+                            "gear_code": "Gear3"
+                        },
+                        "species": {
+                            "species_code": "PIL"
+                        },
+                        "quantity": { 
+                            "mean": 53.23,
+                            "p05": 2.0,
+                            "p95": 8.0
+                        },
+                        "value": { 
+                            "mean": 21322.23,
+                            "p05": 2.0,
+                            "p95": 8.0
+                        }
+                    },
+                    {
+                        "fleet_segment": {
+                            "gear_code": "Gear4"
+                        },
+                        "species": {
+                            "species_code": "PIL"
+                        },
+                        "quantity": { 
+                            "mean": 1229268.13,
+                            "p05": 2.0,
+                            "p95": 8.0
+                        },
+                        "value": { 
+                            "mean": -99782286.91,
+                            "p05": 2.0,
+                            "p95": 8.0
+                        }
+                    }
+                ]
+            },
+            {
+                "market_code": "ESBRX",
+                "currency": "EUR",
+                "sales_statistics": [
+                    {
+                        "fleet_segment": {
+                            "gear_code": "Gear1"
+                        },
+                        "species": {
+                            "species_code": "PIL"
+                        },
+                        "quantity": { 
+                            "mean": 21322.23,
+                            "p05": 2.0,
+                            "p95": 8.0
+                        },
+                        "value": { 
+                            "mean": 21322.23,
+                            "p05": 2.0,
+                            "p95": 8.0
+                        }
+                    },
+                    {
+                        "fleet_segment": {
+                            "gear_code": "Gear1"
+                        },
+                        "species": {
+                            "species_code": "BOG"
+                        },
+                        "quantity": { 
+                            "mean": 21322.23,
+                            "p05": 2.0,
+                            "p95": 8.0
+                        },
+                        "value": { 
+                            "mean": 21322.23,
+                            "p05": 2.0,
+                            "p95": 8.0
+                        }
+                    }
+                ]
+            },
+            {
+                "market_code": "ESBLA",
+                "currency": "EUR",
+                "sales_statistics": [
+                    {
+                        "fleet_segment": {
+                            "gear_code": "Gear5"
+                        },
+                        "species": {
+                            "species_code": "PIL"
+                        },
+                        "quantity": { 
+                            "mean": 21322.23,
+                            "p05": 2.0,
+                            "p95": 8.0
+                        },
+                        "value": { 
+                            "mean": 21322.23,
+                            "p05": 2.0,
+                            "p95": 8.0
+                        }
+                    },
+                    {
+                        "fleet_segment": {
+                            "gear_code": "Gear3"
+                        },
+                        "species": {
+                            "species_code": "HAK"
+                        },
+                        "quantity": { 
+                            "mean": 21322.23,
+                            "p05": 2.0,
+                            "p95": 8.0
+                        },
+                        "value": { 
+                            "mean": 21322.23,
+                            "p05": 2.0,
+                            "p95": 8.0
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+}

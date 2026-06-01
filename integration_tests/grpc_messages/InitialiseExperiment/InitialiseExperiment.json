@@ -1,0 +1,268 @@
+{
+    "experiment_id": "3CD4786B-AABA-482E-9A2D-CAC4B2F6BAD6",
+    "simulation_ids": [
+        "123e4567-e89b-12d3-a456-426614174000"
+    ],
+    "end_date_time": "2014-01-01T00:00:00.000Z",
+    "scenario_name": "asd",
+    "simulation": {
+        "case_study_name": "Western Med",
+        "start_date_time": "2013-01-01T00:00:00.000Z",
+        "maximum_end_date_time": "2050-01-01T00:00:00.000Z",
+        "time_step": "P1M",
+        "geography": {
+            "raster_cell_origin": 1,
+            "crs": {
+                "name": "WGS 84",
+                "authority": "EPSG",
+                "code": "4326"
+            },
+            "xres": 0.0833,
+            "yres": 0.0833,
+            "ncol": 109,
+            "nrow": 82,
+            "xmin": -1.0185,
+            "xmax": 8.0612002,
+            "ymin": 37.0139008,
+            "ymax": 43.8445009
+        },
+        "standards": {
+            "date_and_time": "ISO 8601",
+            "species_code": "FAO 3-alpha",
+            "gear_code": "ISSCFG",
+            "life_stage": "dwc:lifeStage",
+            "market_code": "UN/LOCODE",
+            "currency": "ISO 4217",
+            "country_code": "ISO 3166-1 alpha-3",
+            "measurements": {
+                "system": "SI",
+                "units": [
+                    {
+                        "quantity": "mass",
+                        "unit": "kg"
+                    }
+                ]
+            }
+        },
+        "items": {
+            "markets": [
+                {
+                    "market_code": "ESALC"
+                },
+                {
+                    "market_code": "ESAQA"
+                },
+                {
+                    "market_code": "ESARN"
+                },
+                {
+                    "market_code": "ESBCN"
+                },
+                {
+                    "market_code": "ESBLA"
+                },
+                {
+                    "market_code": "ESBNI"
+                },
+                {
+                    "market_code": "ESBRX"
+                },
+                {
+                    "market_code": "ESCAR"
+                },
+                {
+                    "market_code": "ESCAS"
+                },
+                {
+                    "market_code": "ESCBL"
+                },
+                {
+                    "market_code": "ESCDK"
+                },
+                {
+                    "market_code": "ESCFE"
+                },
+                {
+                    "market_code": "ESCLP"
+                },
+                {
+                    "market_code": "ESDNA"
+                },
+                {
+                    "market_code": "ESERA"
+                },
+                {
+                    "market_code": "ESGAN"
+                },
+                {
+                    "market_code": "ESGLE"
+                },
+                {
+                    "market_code": "ESJAV"
+                },
+                {
+                    "market_code": "ESKLL"
+                },
+                {
+                    "market_code": "ESLAA"
+                },
+                {
+                    "market_code": "ESLLC"
+                },
+                {
+                    "market_code": "ESPAL"
+                },
+                {
+                    "market_code": "ESPNL"
+                },
+                {
+                    "market_code": "ESQAJ"
+                },
+                {
+                    "market_code": "ESROS"
+                },
+                {
+                    "market_code": "ESSAG"
+                },
+                {
+                    "market_code": "ESSCR"
+                },
+                {
+                    "market_code": "ESSFU"
+                },
+                {
+                    "market_code": "ESSPO"
+                },
+                {
+                    "market_code": "ESSPP"
+                },
+                {
+                    "market_code": "ESTAR"
+                },
+                {
+                    "market_code": "ESTOR"
+                },
+                {
+                    "market_code": "ESTRR"
+                },
+                {
+                    "market_code": "ESVJY"
+                },
+                {
+                    "market_code": "ESVLC"
+                },
+                {
+                    "market_code": "ESVLG"
+                },
+                {
+                    "market_code": "ESVZR"
+                },
+                {
+                    "market_code": "ESZME"
+                }
+            ],
+            "currencies": [
+                {
+                    "code": "EUR"
+                }
+            ],
+            "species": [
+                {
+                    "species_code": "ALB",
+                    "length_class": "",
+                    "age": "",
+                    "life_stage": ""
+                },
+                {
+                    "species_code": "ANK",
+                    "length_class": "",
+                    "age": "",
+                    "life_stage": ""
+                },
+                {
+                    "species_code": "BOG",
+                    "length_class": "",
+                    "age": "",
+                    "life_stage": ""
+                },
+                {
+                    "species_code": "PIL",
+                    "length_class": "",
+                    "age": "",
+                    "life_stage": "juvenile"
+                },
+                {
+                    "species_code": "PIL",
+                    "length_class": "",
+                    "age": "",
+                    "life_stage": "adult"
+                }
+            ],
+            "fleet_segments": [
+                {
+                    "gear_code": "EwE:ART",
+                    "vessel_length_class": "",
+                    "scale": "",
+                    "country_code": "ESP",
+                    "model": ""
+                },
+                {
+                    "gear_code": "EwE:ART",
+                    "vessel_length_class": "",
+                    "scale": "",
+                    "country_code": "FRA",
+                    "model": ""
+                },
+                {
+                    "gear_code": "EwE:RECT",
+                    "vessel_length_class": "",
+                    "scale": "",
+                    "country_code": "ESP",
+                    "model": ""
+                },
+                {
+                    "gear_code": "LLS",
+                    "vessel_length_class": "",
+                    "scale": "",
+                    "country_code": "ESP",
+                    "model": ""
+                },
+                {
+                    "gear_code": "OTB",
+                    "vessel_length_class": "",
+                    "scale": "",
+                    "country_code": "ESP",
+                    "model": ""
+                },
+                {
+                    "gear_code": "OTB",
+                    "vessel_length_class": "",
+                    "scale": "",
+                    "country_code": "FRA",
+                    "model": ""
+                },
+                {
+                    "gear_code": "PS",
+                    "vessel_length_class": "",
+                    "scale": "",
+                    "country_code": "ESP",
+                    "model": ""
+                },
+                {
+                    "gear_code": "PS",
+                    "vessel_length_class": "",
+                    "scale": "",
+                    "country_code": "FRA",
+                    "model": ""
+                },
+                {
+                    "gear_code": "TM",
+                    "vessel_length_class": "",
+                    "scale": "",
+                    "country_code": "FRA",
+                    "model": ""
+                }
+            ]
+        }
+    }
+}

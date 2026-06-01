@@ -1,0 +1,116 @@
+{
+    "experiment_id": "3CD4786B-AABA-482E-9A2D-CAC4B2F6BAD6",
+    "start_date_time": "2013-01-01T00:00:00.000Z",
+    "end_date_time": "2014-01-01T00:00:00.000Z",
+    "catch_disposition_statistics_summary": {
+        "disposition_grids_statistics": [
+            {
+                "disposition_cells_statistics": [
+                    {
+                        "longitude": 0.6058500669845,
+                        "latitude": 40.3875508345555,
+                        "gross_catch": { "mean": 0.7822208792257277, "p05": 12.3, "p95": 43.232},
+                        "live_discards": { "mean": 0.035199939565157747, "p05": 12.2, "p95": 3.121},
+                        "dead_discards": { "mean": 0.003911104396128639, "p05": 0.21, "p95": 21.12}
+                    },
+                    {
+                        "longitude": 3.0215501226354995,
+                        "latitude": 41.7203508652595,
+                        "gross_catch": { "mean": 6.554650191345796, "p05": 12.3, "p95": 43.232},
+                        "live_discards": { "mean": 0.2949592586105608, "p05": 12.2, "p95": 3.121},
+                        "dead_discards": { "mean": 0.032773250956728985, "p05": 0.21, "p95": 21.12}
+                    }
+                ],
+                "species": {
+                    "species_code": "PIL",
+                    "length_class": "",
+                    "age": "",
+                    "life_stage": ""
+                },
+                "fleet_segment": {
+                    "gear_code": "PS",
+                    "vessel_length_class": "",
+                    "scale": "",
+                    "country_code": "",
+                    "model": ""
+                }
+            },
+            {
+                "disposition_cells_statistics": [
+                    {
+                        "longitude": 0.6058500669845,
+                        "latitude": 40.3875508345555,
+                        "gross_catch": { "mean": 0.7822208792257277, "p05": 12.3, "p95": 43.232},
+                        "live_discards": { "mean": 0.035199939565157747, "p05": 12.2, "p95": 3.121},
+                        "dead_discards": { "mean": 0.003911104396128639, "p05": 0.21, "p95": 21.12}
+                    },
+                    {
+                        "longitude": 3.0215501226354995,
+                        "latitude": 41.7203508652595,
+                        "gross_catch": { "mean": 6.554650191345796, "p05": 12.3, "p95": 43.232},
+                        "live_discards": { "mean": 0.2949592586105608, "p05": 12.2, "p95": 3.121},
+                        "dead_discards": { "mean": 0.032773250956728985, "p05": 0.21, "p95": 21.12}
+                    },
+                    {
+                        "longitude": 0.6058500669845,
+                        "latitude": 40.1376508287985,
+                        "gross_catch": { "mean": 4.554650191345796, "p05": 11.3, "p95": 4.232},
+                        "live_discards": { "mean": 23.2949592586105608, "p05": 1.2, "p95": 12.121},
+                        "dead_discards": { "mean": 22.032773250956728985, "p05": 433.21, "p95": 22.12}
+                    }
+                ],
+                "species": {
+                    "species_code": "BOG",
+                    "length_class": "",
+                    "age": "",
+                    "life_stage": ""
+                },
+                "fleet_segment": {
+                    "gear_code": "PS",
+                    "vessel_length_class": "",
+                    "scale": "",
+                    "country_code": "",
+                    "model": ""
+                }
+            },
+            {
+                "disposition_cells_statistics": [
+                    {
+                        "longitude": 0.6058500669845,
+                        "latitude": 40.3875508345555,
+                        "gross_catch": { "mean": 3.554650191345796, "p05": 52.3, "p95": 6.232},
+                        "live_discards": { "mean": 4.2949592586105608, "p05": 5.2, "p95": 36.121},
+                        "dead_discards": { "mean": 4.032773250956728985, "p05": 6.21, "p95": 621.12}
+                    },
+                    {
+                        "longitude": 3.0215501226354995,
+                        "latitude": 41.7203508652595,
+                        "gross_catch": { "mean": 64.554650191345796, "p05": 13.3, "p95": 433.232},
+                        "live_discards": { "mean": 55.2949592586105608, "p05": 132.2, "p95": 33.121},
+                        "dead_discards": { "mean": 6.032773250956728985, "p05": 33.21, "p95": 231.12}
+                    },
+                    {
+                        "longitude": 0.6058500669845,
+                        "latitude": 40.1376508287985,
+                        "gross_catch": { "mean": 6.7822208792257277, "p05": 192.3, "p95": 49.232},
+                        "live_discards": { "mean": 99.035199939565157747, "p05": 192.2, "p95": 9.121},
+                        "dead_discards": { "mean": 9.003911104396128639, "p05": 9.21, "p95": 91.12}
+                    }
+                ],
+                "species": {
+                    "species_code": "ANK",
+                    "length_class": "",
+                    "age": "",
+                    "life_stage": ""
+                },
+                "fleet_segment": {
+                    "gear_code": "PS",
+                    "vessel_length_class": "",
+                    "scale": "",
+                    "country_code": "",
+                    "model": ""
+                }
+            }
+        ]
+    }
+}
