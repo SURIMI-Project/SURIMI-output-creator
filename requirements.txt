@@ -1,0 +1,17 @@
+grpcio
+grpc-interceptor
+protobuf>=7.35.0
+surimi-surimi-protocol-grpc-python==1.80.0.1.20260527152210+81d0f7607726
+--extra-index-url https://buf.build/gen/python
+python-dateutil
+boto3
+numpy
+xarray
+netCDF4
+hvac
+PyYAML
+zarr
+python-dotenv   # to load vault credentials from .env file. .env file is not in the repo, it should be created by the user with the necessary vault credentials.
+pytest>=8.0.0   # integration tests
+pytest-timeout>=2.3.0  # per-test timeout
+grpcio-reflection

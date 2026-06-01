@@ -1,0 +1,32 @@
+{
+    "experiment_id": "3CD4786B-AABA-482E-9A2D-CAC4B2F6BAD6",
+    "date_time": "2013-01-01T00:00:00.000Z",
+    "species_price_statistics_summary": {
+        "species_prices_statistics": [
+            {
+                "species": {
+                    "species_code": "BOG",
+                    "length_class": "",
+                    "age": "",
+                    "life_stage": ""
+                },
+                "gear_code": "",
+                "market_code": "ESSCR",
+                "price": { "mean": 13777517.712172166, "p05": 12.3, "p95": 43.232},
+                "currency": "EUR"
+            },
+            {
+                "species": {
+                    "species_code": "PIL",
+                    "length_class": "",
+                    "age": "",
+                    "life_stage": ""
+                },
+                "gear_code": "",
+                "market_code": "ESSCR",
+                "price": { "mean": 42277357.87747139, "p05": 12.3, "p95": 43.232},
+                "currency": "EUR"
+            }
+        ]
+    }
+}
