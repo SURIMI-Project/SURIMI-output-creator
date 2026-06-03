@@ -27,9 +27,6 @@ def serve():
     print("=" * 80)
 
 
-    # manager = experiment_recorder_manager()
-
-
     version = load_version("surimi_surimi_protocol_grpc_python")
     print("Starting gRPC Server... with protocol version:", version)
 
@@ -37,7 +34,7 @@ def serve():
     max_message_length = 100 * 1024 * 1024  # 100MB
     server = grpc.server(
         futures.ThreadPoolExecutor(max_workers=10),
-        interceptors=[exception_metadata_interceptor(), version_metadata_interceptor(version)], #, recording_interceptor(manager)],
+        interceptors=[exception_metadata_interceptor(), version_metadata_interceptor(version)],
         options=[
             ('grpc.max_send_message_length', max_message_length),
             ('grpc.max_receive_message_length', max_message_length),

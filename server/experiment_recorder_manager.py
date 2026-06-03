@@ -25,7 +25,7 @@ class experiment_recorder_manager:
             self._recorder = binary_recorder(path)
             self._active_experiment_id = experiment_id
 
-            print(f"[recorder] started experiment {experiment_id}")
+            print(f"[recorder] started experiment {experiment_id}, writing to {os.path.abspath(path)}")
 
     def finalise_experiment(self, experiment_id: str):
         with self._lock:

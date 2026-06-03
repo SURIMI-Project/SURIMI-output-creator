@@ -5,7 +5,8 @@ import numpy as np
 import xarray as xr
 import zarr.codecs
 from surimi.v1 import output_creator_service_pb2, simulation_pb2, experiment_step_pb2, update_catch_disposition_statistics_pb2, update_biomass_statistics_pb2
-from surimi.v1 import update_sales_statistics_pb2, update_species_prices_statistics_pb2, update_fishing_activity_statistics_pb2, finalise_experiment_pb2
+from surimi.v1 import update_sales_statistics_pb2, update_species_prices_statistics_pb2, update_fishing_activity_statistics_pb2, finalise_experiment_pb2, update_sales_statistics_pb2
+from surimi.v1 import double_statistics_pb2
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from message_registry import message_registry
@@ -168,22 +169,22 @@ class surimi_output:
         # Fishing activity data variable (time, fleet) 
         self.fishing_activity_data  = np.full((N_TIME, N_FLEET), np.nan, dtype=np.float32)
 
-    # def handle_message(self, message):
-    #     """
-    #     Generic entry point for all recorded messages.
-    #     Dispatch is driven by message_registry.
-    #     """
-    #     method_name = message_registry.netcdf_method_for(message)
-    #     if method_name is None:
-    #         return  # unknown or unsupported message
+    def handle_message(self, message):
+        """
+        Generic entry point for all recorded messages.
+        Dispatch is driven by message_registry.
+        """
+        method_name = message_registry.netcdf_method_for(message)
+        if method_name is None:
+            return  # unknown or unsupported message
 
-    #     method = getattr(self, method_name)
-    #     method(message)
+        method = getattr(self, method_name)
+        method(message)
 
     def experiment_step(self, request: experiment_step_pb2.ExperimentStepRequest):
         print(f"ExperimentStep for simulation {request.experiment_id}")
 
-    def UpdateBiomass(self, request: update_biomass_statistics_pb2.UpdateBiomassStatisticsRequest):
+    def UpdateBiomassStatistics(self, request: update_biomass_statistics_pb2.UpdateBiomassStatisticsRequest):
         print(f"UpdateBiomass for simulation {request.experiment_id}")
 
         # Convert protobuf Timestamp to Python datetime
@@ -201,19 +202,19 @@ class surimi_output:
                     f"Unknown species combination (code='{disp.species.species_code}', life_stage='{disp.species.life_stage}')"
                 )
 
-            self.biomass_total_data[t_index, sp_idx] = sum(cell.biomass for cell in disp.biomass_cells)
+            self.biomass_total_data[t_index, sp_idx] = sum(cell.biomass.mean for cell in disp.biomass_cells_statistics)
 
-            for cell in disp.biomass_cells:
+            for cell in disp.biomass_cells_statistics:
                 lat_i = self.find_nearest_index(self.lat_values, cell.latitude)
                 lon_i = self.find_nearest_index(self.lon_values, cell.longitude)
 
-                self.biomass_data[t_index, sp_idx, lat_i, lon_i] = cell.biomass
+                self.biomass_data[t_index, sp_idx, lat_i, lon_i] = cell.biomass.mean
 
-            print(f"Updated biomass for species '{disp.species.species_code}' (stage='{disp.species.life_stage}'). {len(disp.biomass_cells)} cells updated.")
+            print(f"Updated biomass for species '{disp.species.species_code}' (stage='{disp.species.life_stage}'). {len(disp.biomass_cells_statistics)} cells updated.")
 
-        print(f"Updated biomass for time index {t_index}. {len(request.biomass_summary.biomass_grids)} grids updated.")
+        print(f"Updated biomass for time index {t_index}. {len(request.biomass_statistics_summary.biomass_grids_statistics)} grids updated.")
 
-    def UpdateSales(self, request: update_sales_statistics_pb2.UpdateSalesStatisticsRequest):
+    def UpdateSalesStatistics(self, request: update_sales_statistics_pb2.UpdateSalesStatisticsRequest):
         print(f"UpdateSales for simulation {request.experiment_id}")
 
         # Convert protobuf Timestamp to Python datetime
@@ -223,10 +224,10 @@ class surimi_output:
         # Clear this time slice (NaN represents missing data)
         # self.sales_data[t_index] = np.nan
 
-        for market in request.sales_summaries:
+        for market in request.sales_statistics_summary.market_sales_statistics:
             market_idx = self.market_codes.index(market.market_code)
 
-            for sale in market.sales:
+            for sale in market.sales_statistics:
                 try:
                     sp_idx = self.species_pairs.index((sale.species.species_code, sale.species.life_stage))
                 except ValueError:
@@ -239,15 +240,15 @@ class surimi_output:
                 country_code = sale.fleet_segment.country_code or 'FRA' # TODO!!!! THIS MUST BE FIXED: TEMPORARY HACK TO HANDLE MISSING COUNTRY CODE IN SALES DATA. REMOVE THIS AND REQUIRE VALID COUNTRY CODE INSTEAD.
                 fleet_idx = self.fleet_pairs.index((gear, country_code))
 
-                self.sales_value_data[t_index, sp_idx, fleet_idx, market_idx] = sale.value
-                self.sales_quantity_data[t_index, sp_idx, fleet_idx, market_idx] = sale.quantity
+                self.sales_value_data[t_index, sp_idx, fleet_idx, market_idx] = sale.value.mean
+                self.sales_quantity_data[t_index, sp_idx, fleet_idx, market_idx] = sale.quantity.mean
 
-            print(f"Updated sales for species '{sale.species.species_code}' (stage='{sale.species.life_stage}'). {len(market.sales)} sales updated.")
+            print(f"Updated sales for species '{sale.species.species_code}' (stage='{sale.species.life_stage}'). {len(market.sales_statistics)} sales updated.")
 
-        print(f"Updated sales for time index {t_index} {len(request.sales_summaries)} markets updated.")
+        print(f"Updated sales for time index {t_index} {len(request.sales_statistics_summary.market_sales_statistics)} markets updated.")
 
-    def UpdateCatchDisposition(self, request: update_catch_disposition_statistics_pb2.UpdateCatchDispositionStatisticsRequest):
-        print(f"UpdateCatchDisposition for simulation {request.experiment_id}")
+    def UpdateCatchDispositionStatistics(self, request: update_catch_disposition_statistics_pb2.UpdateCatchDispositionStatisticsRequest):
+        print(f"UpdateCatchDispositionStatistics for simulation {request.experiment_id}")
 
         # Convert protobuf Timestamp to Python datetime
         date_str = request.start_date_time.ToDatetime().strftime("%Y-%m-%d")
@@ -258,7 +259,7 @@ class surimi_output:
         self.live_data[t_index]  = np.nan
         self.dead_data[t_index]  = np.nan
 
-        for disp in request.catch_disposition_summary.disposition_grids:
+        for disp in request.catch_disposition_statistics_summary.disposition_grids_statistics:
             try:
                 sp_idx = self.species_pairs.index((disp.species.species_code, disp.species.life_stage))
             except ValueError:
@@ -270,26 +271,26 @@ class surimi_output:
             country_code = disp.fleet_segment.country_code
             fleet_idx = self.fleet_pairs.index((gear, country_code))
 
-            self.gross_total_data[t_index, sp_idx, fleet_idx] = sum(cell.gross_catch for cell in disp.disposition_cells)
-            self.live_total_data[t_index, sp_idx, fleet_idx]  = sum(cell.live_discards for cell in disp.disposition_cells)
-            self.dead_total_data[t_index, sp_idx, fleet_idx]  = sum(cell.dead_discards for cell in disp.disposition_cells)
+            self.gross_total_data[t_index, sp_idx, fleet_idx] = sum(cell.gross_catch.mean for cell in disp.disposition_cells_statistics)
+            self.live_total_data[t_index, sp_idx, fleet_idx]  = sum(cell.live_discards.mean for cell in disp.disposition_cells_statistics)
+            self.dead_total_data[t_index, sp_idx, fleet_idx]  = sum(cell.dead_discards.mean for cell in disp.disposition_cells_statistics)
 
-            for cell in disp.disposition_cells:
+            for cell in disp.disposition_cells_statistics:
                 lat_i = self.find_nearest_index(self.lat_values, cell.latitude)
                 lon_i = self.find_nearest_index(self.lon_values, cell.longitude)
 
-                self.gross_data[t_index, sp_idx, fleet_idx, lat_i, lon_i] = cell.gross_catch
-                self.live_data[t_index, sp_idx, fleet_idx, lat_i, lon_i]  = cell.live_discards
-                self.dead_data[t_index, sp_idx, fleet_idx, lat_i, lon_i]  = cell.dead_discards
+                self.gross_data[t_index, sp_idx, fleet_idx, lat_i, lon_i] = cell.gross_catch.mean
+                self.live_data[t_index, sp_idx, fleet_idx, lat_i, lon_i]  = cell.live_discards.mean
+                self.dead_data[t_index, sp_idx, fleet_idx, lat_i, lon_i]  = cell.dead_discards.mean
 
-            print(f"Updated catch disposition for species '{disp.species.species_code}' (stage='{disp.species.life_stage}'), fleet '{disp.fleet_segment.gear_code}'/'{disp.fleet_segment.country_code}'. {len(disp.disposition_cells)} cells updated.")
+            print(f"Updated catch disposition for species '{disp.species.species_code}' (stage='{disp.species.life_stage}'), fleet '{disp.fleet_segment.gear_code}'/'{disp.fleet_segment.country_code}'. {len(disp.disposition_cells_statistics)} cells updated.")
 
-        print(f"Updated catch disposition for time index {t_index}. {len(request.catch_disposition_summary.disposition_grids)} grids updated.")
+        print(f"Updated catch disposition for time index {t_index}. {len(request.catch_disposition_statistics_summary.disposition_grids_statistics)} grids updated.")
 
-    def UpdateSpeciesPrices(self, request: update_species_prices_statistics_pb2.UpdateSpeciesPricesStatisticsRequest):
-        print(f"UpdateSpeciesPrices for simulation {request.experiment_id}")
+    def UpdateSpeciesPriceStatistics(self, request: update_species_prices_statistics_pb2.UpdateSpeciesPriceStatisticsRequest):
+        print(f"UpdateSpeciesPriceStatistics for simulation {request.experiment_id}")
 
-        for price in request.prices:
+        for price in request.species_price_statistics_summary.species_prices_statistics:
             try:
                 sp_idx = self.species_pairs.index((price.species.species_code, price.species.life_stage))
             except ValueError:
@@ -299,13 +300,13 @@ class surimi_output:
             gear_idx = self.gear_codes.index(price.gear_code)
             market_idx = self.market_codes.index(price.market_code)
 
-            date_str = price.timestamp.ToDatetime().strftime("%Y-%m-%d")
+            date_str = request.date_time.ToDatetime().strftime("%Y-%m-%d")
             time_idx = self.find_time_index(date_str)
 
-            self.price_data[time_idx, sp_idx, market_idx, gear_idx] = price.price
+            self.price_data[time_idx, sp_idx, market_idx, gear_idx] = price.price.mean
 
-    def UpdateFishingActivity(self, request: update_fishing_activity_statistics_pb2.UpdateFishingActivityStatisticsRequest):
-        print(f"UpdateFishingActivity for simulation {request.experiment_id}")
+    def UpdateFishingActivityStatistics(self, request: update_fishing_activity_statistics_pb2.UpdateFishingActivityStatisticsRequest):
+        print(f"UpdateFishingActivityStatistics for simulation {request.experiment_id}")
 
         # Convert protobuf Timestamp to Python datetime
         date_str = request.start_date_time.ToDatetime().strftime("%Y-%m-%d")
@@ -313,19 +314,19 @@ class surimi_output:
 
         # Clear this time slice (NaN represents missing data)
 
-        for activity in request.fishing_activity_summary.fishing_activities:
+        for activity in request.fishing_activity_statistics_summary.fishing_activities_statistics:
 
             gear = activity.fleet_segment.gear_code
             country_code = activity.fleet_segment.country_code
             fleet_idx = self.fleet_pairs.index((gear, country_code))
 
-            self.fishing_activity_data[t_index, fleet_idx] = activity.fishing_activity_ratio
+            self.fishing_activity_data[t_index, fleet_idx] = activity.fishing_activity_ratio.mean
 
             print(f"Updated fishing activity for fleet '{activity.fleet_segment.gear_code}'/'{activity.fleet_segment.country_code}'.")
 
-        print(f"Updated fishing activity for time index {t_index}. {len(request.fishing_activity_summary.fishing_activities)} activities updated.")
+        print(f"Updated fishing activity for time index {t_index}. {len(request.fishing_activity_statistics_summary.fishing_activities_statistics)} activities updated.")
 
-    def finalise(self, request: finalise_experiment_pb2.FinaliseExperimentRequest):
+    def finalise(self):
        # print(f"Finalise for simulation {request.experiment_id}")
         try:
             self._write_dataset()
