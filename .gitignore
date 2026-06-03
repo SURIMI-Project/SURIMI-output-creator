@@ -7,7 +7,7 @@ server/__pycache__/
 .venv
 .env
 .idea/
-simulations/*
+experiments/*
 BUGS.md
 logs/
 

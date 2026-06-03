@@ -1,16 +1,15 @@
 import sys
 from datetime import datetime
 import grpc
-# from server import experiment_recorder_manager
+from server.message_registry import message_registry
+from server.common_functions import log_and_abort, require_not_empty
 # from server.stream_reader import stream_reader
 from server.experiment import experiment
-from surimi.v1 import output_creator_service_pb2, output_creator_service_pb2_grpc, initialise_experiment_pb2, experiment_step_pb2, finalise_experiment_pb2, cancel_experiment_pb2, get_protocol_version_pb2, update_catch_disposition_statistics_pb2, update_biomass_statistics_pb2, update_sales_statistics_pb2, update_fishing_activity_statistics_pb2, update_species_prices_statistics_pb2
-from pathlib import Path
-from common_functions import log_and_abort
-import yaml
+from surimi.v1 import output_creator_service_pb2_grpc, initialise_experiment_pb2, experiment_step_pb2, finalise_experiment_pb2, cancel_experiment_pb2, get_protocol_version_pb2, update_catch_disposition_statistics_pb2, update_biomass_statistics_pb2, update_sales_statistics_pb2, update_fishing_activity_statistics_pb2, update_species_prices_statistics_pb2, simulation_pb2
+from common_functions import log_and_abort, require_not_empty
 from google.protobuf.json_format import MessageToDict
 import subprocess
-# from server.message_registry import message_registry
+from server.experiment_recorder_manager import experiment_recorder_manager
 
 class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceServicer):
     def __init__(self, experiment_dictionary, version: str):
@@ -18,6 +17,9 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
         self.version = version
 
     def InitialiseExperiment(self, request: initialise_experiment_pb2.InitialiseExperimentRequest, context: grpc.ServicerContext):
+        require_not_empty(context, request.experiment_id, "experiment_id")
+        require_not_empty(context, request.scenario_name, "scenario_name")
+
         if request.experiment_id in self.experiment_dictionary:
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, 
                       f"Experiment Id {request.experiment_id} is already initialised.")
@@ -28,9 +30,11 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
             end_date_info = f" and end date {request.end_date_time.ToDatetime()}"
         print(f"Init experiment {request.experiment_id} for scenario {request.scenario_name} with start date {request.simulation.start_date_time.ToDatetime()} and step size {request.simulation.time_step} and end_date_time {end_date_info}")
 
-        new_exp = experiment(request.experiment_id, None, request.simulation)
+        new_exp = experiment(request.experiment_id, experiment_recorder_manager(), request.simulation)
         new_exp.end_date_time = request.end_date_time.ToDatetime()
         self.experiment_dictionary[request.experiment_id] = new_exp
+
+        new_exp.experiment_recorder_manager.start_experiment(request.experiment_id)
 
         # TODO: If you also capture this message, you don't need to write the contract to a yaml file and read it again in the netcdf worker
         # manager : experiment_recorder_manager = self.experiment_dictionary[experiment_id].experiment_recorder_manager
@@ -75,38 +79,12 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
         print(f"Finalise for simulation {request.experiment_id}")
         self.experiment_dictionary[request.experiment_id].isFinalised = True
 
+        self.experiment_dictionary[request.experiment_id].experiment_recorder_manager.finalise_experiment(request.experiment_id)
+
         # check if this is the last simulation of the experiment to finish, if so, we can finalise the experiment and upload the results to S3. We check this by looking at the end date of the simulation, if it is in the past, it means that this simulation has finished all its steps and is now being finalised. If there are other simulations that are not yet finalised and have an end date in the past, it means that they have also finished their steps but are not yet finalised, so we should not finalise the experiment yet.
         experiment_id = self.experiment_dictionary[request.experiment_id].experiment_id
-        # if experiment_id is not None:
-        #     all_finalised = True
-        #     for sim in self.experiment_dictionary.values():
-        #         if sim.experiment_id == experiment_id:
-        #             if not sim.isFinalised:
-        #                 all_finalised = False
-        #                 break
-            
-        #     if all_finalised:
-        #         print(f"All simulations for experiment {experiment_id} are finalised. Finalising experiment and uploading results to S3.")
 
-        #         self.experiment_dictionary[experiment_id].experiment_recorder_manager.finalise_experiment(experiment_id)
-
-        #         # Create output directory for the experiment if it doesn't exist    
-        #         output_directory = Path(__file__).parent.parent.resolve() / Path("experiments") / experiment_id
-        #         # try:
-        #         #     output_directory.mkdir(parents=True, exist_ok=True)
-        #         #     print(f"Created simulation directory: {output_directory}")
-        #         # except FileExistsError:
-        #         #     print(f"Directory already exists: {output_directory}")
-        #         # except Exception as e:
-        #         #     print(f"Directory creation failed: {str(e)}")
-
-        #         # write the contract as a yaml file to be used by the netcdf worker
-        #         contract_path = output_directory / "contract.yaml"
-        #         with open(contract_path, "w") as f:
-        #             yaml.dump(MessageToDict(self.experiment_dictionary[request.experiment_id].simulation), f, default_flow_style=False)
-        #         print(f"Wrote contract to {contract_path}")
-
-        #         self.start_netcdf_subprocess(experiment_id, self.experiment_dictionary[request.experiment_id].end_date_time)
+        self.start_netcdf_subprocess(experiment_id, self.experiment_dictionary[request.experiment_id].end_date_time, self.experiment_dictionary[request.experiment_id].simulation)
 
         return finalise_experiment_pb2.FinaliseExperimentResponse(
             experiment_id=request.experiment_id
@@ -143,11 +121,11 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
         if experiment_id not in self.experiment_dictionary:
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Experiment Id {experiment_id} not known. Cannot update catch disposition.")
 
-        # manager : experiment_recorder_manager = self.experiment_dictionary[experiment_id].experiment_recorder_manager
-        # manager.record(
-        #     message_registry.frame_type_for(request),
-        #     request.SerializeToString(),
-        # )
+        manager : experiment_recorder_manager = self.experiment_dictionary[experiment_id].experiment_recorder_manager
+        manager.record(
+            message_registry.frame_type_for(request),
+            request.SerializeToString(),
+        )
 
         return update_catch_disposition_statistics_pb2.UpdateCatchDispositionStatisticsResponse(
             experiment_id=request.experiment_id
@@ -164,11 +142,11 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
         if(experiment_id not in self.experiment_dictionary):
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Experiment Id {experiment_id} not known. Cannot update biomass.")
 
-        # manager : experiment_recorder_manager = self.experiment_dictionary[experiment_id].experiment_recorder_manager
-        # manager.record(
-        #     message_registry.frame_type_for(request),
-        #     request.SerializeToString(),
-        # )
+        manager : experiment_recorder_manager = self.experiment_dictionary[experiment_id].experiment_recorder_manager
+        manager.record(
+            message_registry.frame_type_for(request),
+            request.SerializeToString(),
+        )
         return update_biomass_statistics_pb2.UpdateBiomassStatisticsResponse(
             experiment_id=request.experiment_id
         )
@@ -183,11 +161,11 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
         if experiment_id not in self.experiment_dictionary:
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Experiment Id {experiment_id} not known. Cannot update fishing activity.")
 
-        # manager : experiment_recorder_manager = self.experiment_dictionary[experiment_id].experiment_recorder_manager
-        # manager.record(
-        #     message_registry.frame_type_for(request),
-        #     request.SerializeToString(),
-        # )
+        manager : experiment_recorder_manager = self.experiment_dictionary[experiment_id].experiment_recorder_manager
+        manager.record(
+            message_registry.frame_type_for(request),
+            request.SerializeToString(),
+        )
 
         return update_fishing_activity_statistics_pb2.UpdateFishingActivityStatisticsResponse(
             experiment_id=request.experiment_id
@@ -205,11 +183,11 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
         if experiment_id not in self.experiment_dictionary:
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Experiment Id {experiment_id} not known. Cannot update sales.")
 
-        # manager : experiment_recorder_manager = self.experiment_dictionary[experiment_id].experiment_recorder_manager
-        # manager.record(
-        #     message_registry.frame_type_for(request),
-        #     request.SerializeToString(),
-        # )
+        manager : experiment_recorder_manager = self.experiment_dictionary[experiment_id].experiment_recorder_manager
+        manager.record(
+            message_registry.frame_type_for(request),
+            request.SerializeToString(),
+        )
 
         return update_sales_statistics_pb2.UpdateSalesStatisticsResponse(
             experiment_id=request.experiment_id
@@ -227,12 +205,25 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
         if experiment_id not in self.experiment_dictionary:
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Experiment Id {experiment_id} not known. Cannot update species prices.")
 
-        # manager : experiment_recorder_manager = self.experiment_dictionary[experiment_id].experiment_recorder_manager
-        # manager.record(
-        #     message_registry.frame_type_for(request),
-        #     request.SerializeToString(),
-        # )
+        manager : experiment_recorder_manager = self.experiment_dictionary[experiment_id].experiment_recorder_manager
+        manager.record(
+            message_registry.frame_type_for(request),
+            request.SerializeToString(),
+        )
 
         return update_species_prices_statistics_pb2.UpdateSpeciesPriceStatisticsResponse(
             experiment_id=request.experiment_id
+        )
+
+    def start_netcdf_subprocess(self, experiment_id: str, end_date_time: datetime, simulation: simulation_pb2.Simulation):
+        subprocess.Popen(
+            [
+                sys.executable,
+                "server/netcdf_worker_main.py",
+                experiment_id,
+                f"experiments/{experiment_id}/{experiment_id}.bin",
+                f"experiments/{experiment_id}",
+                end_date_time.isoformat(),
+                simulation.SerializeToString().hex(),
+            ],
         )

@@ -94,5 +94,4 @@ SURIMI is a 3-year project (2024-2027) that will feed into the EU DTO. SURIMI’
 - [Project website](www.surimi-project.eu)
 - [Twitter](https://x.com/surimi_project)
 - [LinkedIn](https://www.linkedin.com/company/surimi-project/)
-
-X
+- 
