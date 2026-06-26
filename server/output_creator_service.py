@@ -5,7 +5,7 @@ from server.message_registry import message_registry
 from server.common_functions import log_and_abort, require_not_empty
 # from server.stream_reader import stream_reader
 from server.experiment import experiment
-from surimi.v1 import output_creator_service_pb2_grpc, initialise_experiment_pb2, experiment_step_pb2, finalise_experiment_pb2, cancel_experiment_pb2, get_protocol_version_pb2, update_catch_disposition_statistics_pb2, update_biomass_statistics_pb2, update_sales_statistics_pb2, update_fishing_activity_statistics_pb2, update_species_prices_statistics_pb2, simulation_pb2
+from surimi.v1 import output_creator_service_pb2_grpc, initialise_experiment_pb2, experiment_step_pb2, finalise_experiment_pb2, cancel_experiment_pb2, get_protocol_version_pb2, update_catch_disposition_statistics_pb2, update_biomass_statistics_pb2, update_sales_statistics_pb2, update_fishing_activity_statistics_pb2, update_species_prices_statistics_pb2, simulation_pb2, update_stock_assessment_pb2
 from common_functions import log_and_abort, require_not_empty
 from google.protobuf.json_format import MessageToDict
 import subprocess
@@ -212,6 +212,28 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
         )
 
         return update_species_prices_statistics_pb2.UpdateSpeciesPriceStatisticsResponse(
+            experiment_id=request.experiment_id
+        )
+
+    def UpdateStockAssessment(self, request: update_stock_assessment_pb2.UpdateStockAssessmentRequest, context: grpc.ServicerContext):
+        if not request.experiment_id in self.experiment_dictionary.keys():
+            log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Experiment Id {request.experiment_id} not known. Cannot update stock assessment.")
+
+        print(f"Update StockAssessment for experiment {request.experiment_id} ")
+
+        print(request)  # for debugging purposes
+
+        # experiment_id = request.experiment_id
+        # if experiment_id not in self.experiment_dictionary:
+        #     log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Experiment Id {experiment_id} not known. Cannot update stock assessment.")
+
+        # manager : experiment_recorder_manager = self.experiment_dictionary[experiment_id].experiment_recorder_manager
+        # manager.record(
+        #     message_registry.frame_type_for(request),
+        #     request.SerializeToString(),
+        # )
+
+        return update_stock_assessment_pb2.UpdateStockAssessmentResponse(
             experiment_id=request.experiment_id
         )
 
