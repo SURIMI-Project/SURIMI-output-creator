@@ -27,7 +27,7 @@ def main():
         output.finalise()
 
         simulation_dir = Path(__file__).parent.parent / "experiments" / experiment_id
-        S3_Storage.UploadFilesToS3(str(simulation_dir), f"surimi-output-creator/experiments/{experiment_id}")
+        S3_Storage.UploadFilesToS3(str(simulation_dir), f"output-creator/experiments/{experiment_id}")
 
         print(f"Finished experiment {experiment_id}")
 
