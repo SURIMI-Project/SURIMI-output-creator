@@ -10,7 +10,7 @@
                     "age": "",
                     "life_stage": ""
                 },
-                "gear_code": "",
+                "category_code": "",
                 "market_code": "ESSCR",
                 "price": { "mean": 13777517.712172166, "p05": 12.3, "p95": 43.232},
                 "currency": "EUR"
@@ -22,7 +22,7 @@
                     "age": "",
                     "life_stage": ""
                 },
-                "gear_code": "",
+                "category_code": "",
                 "market_code": "ESSCR",
                 "price": { "mean": 42277357.87747139, "p05": 12.3, "p95": 43.232},
                 "currency": "EUR"

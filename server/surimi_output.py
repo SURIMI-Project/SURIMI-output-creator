@@ -107,18 +107,16 @@ class surimi_output:
         self.fleet_gear_codes    = [g for (g, c) in self.fleet_pairs]
         self.fleet_country_codes = [c for (g, c) in self.fleet_pairs]
 
-        self.gear_codes = list(dict.fromkeys(fleet.gear_code for fleet in self.simulation.items.fleet_segments))
-        if "" not in self.gear_codes:
-            self.gear_codes.insert(0, "")      # empty string as baseline gear
+        self.category_codes: list[str] = [""]  # TODO: populate from simulation definition when available
 
         self.market_codes = list(dict.fromkeys(market.market_code for market in self.simulation.items.markets))
 
         N_FLEET = len(self.fleet_pairs)
         N_SPECIES = len(self.species_pairs)
-        N_GEAR = len(self.gear_codes)
         N_MARKET = len(self.market_codes)
+        N_CATEGORY = len(self.category_codes)
 
-        print(f"Defined {N_SPECIES} species/stage combinations, {N_FLEET} fleet segments, {N_GEAR} gear codes, {N_MARKET} market codes.")
+        print(f"Defined {N_SPECIES} species/stage combinations, {N_FLEET} fleet segments, {N_MARKET} market codes, {N_CATEGORY} category codes.")
         
         #
         # ----------------------------------------------------------
@@ -161,8 +159,8 @@ class surimi_output:
         self.biomass_total_data  = np.full((N_TIME, N_SPECIES), np.nan, dtype=np.float32)
         print("done pre-allocating total data arrays")
 
-        # Price data variable (time, species, market, gear)
-        self.price_data = np.full((N_TIME, N_SPECIES, N_MARKET, N_GEAR), np.nan, dtype=np.float32)
+        # Price data variable (time, species, market, category)
+        self.price_data = np.full((N_TIME, N_SPECIES, N_MARKET, N_CATEGORY), np.nan, dtype=np.float32)
         self.sales_value_data  = np.full((N_TIME, N_SPECIES, N_FLEET, N_MARKET), np.nan, dtype=np.float32)
         self.sales_quantity_data  = np.full((N_TIME, N_SPECIES, N_FLEET, N_MARKET), np.nan, dtype=np.float32)
 
@@ -297,13 +295,13 @@ class surimi_output:
                 raise ValueError(
                     f"Unknown species combination (code='{price.species.species_code}', life_stage='{price.species.life_stage}')"
                 )
-            gear_idx = self.gear_codes.index(price.gear_code)
+            cat_idx = self.category_codes.index(price.category_code)
             market_idx = self.market_codes.index(price.market_code)
 
             date_str = request.date_time.ToDatetime().strftime("%Y-%m-%d")
             time_idx = self.find_time_index(date_str)
 
-            self.price_data[time_idx, sp_idx, market_idx, gear_idx] = price.price.mean
+            self.price_data[time_idx, sp_idx, market_idx, cat_idx] = price.price.mean
 
     def UpdateFishingActivityStatistics(self, request: update_fishing_activity_statistics_pb2.UpdateFishingActivityStatisticsRequest):
         print(f"UpdateFishingActivityStatistics for simulation {request.experiment_id}")
@@ -348,7 +346,7 @@ class surimi_output:
         dims_4d    = ("time", "species", "lat", "lon")
         dims_3d    = ("time", "species", "fleet")
         dims_2d    = ("time", "species")
-        dims_price = ("time", "species", "market", "gear")
+        dims_price = ("time", "species", "market", "category")
         dims_sale  = ("time", "species", "fleet", "market")
         dims_activity = ("time", "fleet")
 
@@ -380,7 +378,7 @@ class surimi_output:
                 "species_code":        ("species", self.species_codes),
                 "species_life_stage":  ("species", self.species_stages),
                 "market_code":         ("market", self.market_codes),
-                "price_gear_code":     ("gear", self.gear_codes),
+                "price_category_code": ("category", self.category_codes),
                 "fleet_gear_code":     ("fleet", self.fleet_gear_codes),
                 "fleet_country_code":  ("fleet", self.fleet_country_codes),
             },
