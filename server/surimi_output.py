@@ -107,7 +107,7 @@ class surimi_output:
         self.fleet_gear_codes    = [g for (g, c) in self.fleet_pairs]
         self.fleet_country_codes = [c for (g, c) in self.fleet_pairs]
 
-        self.category_codes: list[str] = [""]  # TODO: populate from simulation definition when available
+        self.category_codes = list(dict.fromkeys(price_category.category_code for price_category in self.simulation.items.price_categories))
 
         self.market_codes = list(dict.fromkeys(market.market_code for market in self.simulation.items.markets))
 
