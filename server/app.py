@@ -2,6 +2,7 @@ import logging
 import os
 
 from concurrent import futures
+from server.logging_formatter import configure_logging
 import grpc
 from server.experiment import experiment
 from server.exception_metadata_interceptor import exception_metadata_interceptor
@@ -14,7 +15,7 @@ from importlib.metadata import version, PackageNotFoundError
 from grpc_reflection.v1alpha import reflection
 
 def serve():
-    logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(message)s', datefmt='%H:%M:%S')
+    configure_logging()
     load_dotenv()  # Load environment variables from .env file
     
     experiment_dictionary: dict[str, experiment] = {}   # This dictionary will hold the current experiment instance, keyed by experiment_id
