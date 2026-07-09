@@ -97,8 +97,9 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
 
         logging.info(f"Cancel for simulation {request.experiment_id}")
 
-        sim = self.experiment_dictionary[request.experiment_id]
-        sim.netcdf_file_instance.cancel(request)
+        exp = self.experiment_dictionary[request.experiment_id]
+        exp.experiment_recorder_manager.cancel_experiment(request.experiment_id)
+        del self.experiment_dictionary[request.experiment_id]
 
         return cancel_experiment_pb2.CancelExperimentResponse(
             experiment_id=request.experiment_id
