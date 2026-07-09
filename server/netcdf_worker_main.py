@@ -1,3 +1,4 @@
+import logging
 import sys
 import traceback
 from datetime import datetime
@@ -8,6 +9,7 @@ from surimi.v1 import simulation_pb2
 from server.s3_storage import S3_Storage
 
 def main():
+    logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(message)s', datefmt='%H:%M:%S')
     experiment_id = sys.argv[1]     # The experiment ID is passed as the first command-line argument
     experiment_path = sys.argv[2]   # The path to the binary file containing the recorded protobuf messages for this experiment is passed as the second command-line argument
     output_path = sys.argv[3]       # The path to the output directory where the netCDF file should be written is passed as the third command-line argument
@@ -15,7 +17,7 @@ def main():
     simulation: simulation_pb2.Simulation = simulation_pb2.Simulation.FromString(bytes.fromhex(sys.argv[5]))  # The simulation protobuf is passed as a hex-encoded serialized protobuf
 
     try:
-        print(f"Processing experiment {experiment_id}")
+        logging.info(f"Processing experiment {experiment_id}")
 
         reader = binary_reader(experiment_path)
 
@@ -29,10 +31,10 @@ def main():
         simulation_dir = Path(__file__).parent.parent / "experiments" / experiment_id
         S3_Storage.UploadFilesToS3(str(simulation_dir), f"output_creator/experiments/{experiment_id}")
 
-        print(f"Finished experiment {experiment_id}")
+        logging.info(f"Finished experiment {experiment_id}")
 
     except Exception as e:
-        print(f"Error processing experiment {experiment_id}: {type(e).__name__}: {str(e)}")
+        logging.error(f"Error processing experiment {experiment_id}: {type(e).__name__}: {str(e)}")
         traceback.print_exc()
         sys.exit(1)
 

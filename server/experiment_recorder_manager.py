@@ -1,3 +1,4 @@
+import logging
 import os
 import threading
 from binary_recorder import binary_recorder
@@ -25,12 +26,12 @@ class experiment_recorder_manager:
             self._recorder = binary_recorder(path)
             self._active_experiment_id = experiment_id
 
-            print(f"[recorder] started experiment {experiment_id}, writing to {os.path.abspath(path)}")
+            logging.info(f"[recorder] started experiment {experiment_id}, writing to {os.path.abspath(path)}")
 
     def finalise_experiment(self, experiment_id: str):
         with self._lock:
             if self._active_experiment_id != experiment_id:
-                print(
+                logging.info(
                     f"[recorder] ignoring finalise for {experiment_id} "
                     f"(active={self._active_experiment_id})"
                 )
@@ -40,7 +41,7 @@ class experiment_recorder_manager:
             self._recorder = None
             self._active_experiment_id = None
 
-            print(f"[recorder] finalised experiment {experiment_id}")
+            logging.info(f"[recorder] finalised experiment {experiment_id}")
 
     def record(self, frame_type: int, payload: bytes):
         with self._lock:

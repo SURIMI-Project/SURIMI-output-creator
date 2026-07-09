@@ -1,4 +1,5 @@
 from typing import Any, Callable
+import logging
 import grpc
 import traceback
 from grpc_interceptor import ServerInterceptor
@@ -17,13 +18,13 @@ class exception_metadata_interceptor(ServerInterceptor):
         try:
             return method(request_or_iterator, context)
         except GrpcException as rpc_error:  # Catch gRPC-specific exceptions
-            print(f"🔴 GrpcException in {method_name}: {rpc_error.details()}")
-            print(f"   Status Code: {rpc_error.code()}")
+            logging.error(f"GrpcException in {method_name}: {rpc_error.details()}")
+            logging.error(f"   Status Code: {rpc_error.code()}")
             raise
 
         except Exception as e:
-            print(f"🔴 Exception in {method_name}: {type(e).__name__}: {str(e)}")
-            print(f"   Traceback:")
+            logging.error(f"Exception in {method_name}: {type(e).__name__}: {str(e)}")
+            logging.error(f"   Traceback:")
             traceback.print_exc()
 
             metadata = [
