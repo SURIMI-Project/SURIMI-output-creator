@@ -223,17 +223,12 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
 
         logging.info(f"Update StockAssessment for experiment {request.experiment_id} ")
 
-        logging.info(str(request))  # for debugging purposes
+        manager : experiment_recorder_manager = self.experiment_dictionary[request.experiment_id].experiment_recorder_manager
+        manager.record(
+            message_registry.frame_type_for(request),
+            request.SerializeToString(),
+        )
 
-        # experiment_id = request.experiment_id
-        # if experiment_id not in self.experiment_dictionary:
-        #     log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Experiment Id {experiment_id} not known. Cannot update stock assessment.")
-
-        # manager : experiment_recorder_manager = self.experiment_dictionary[experiment_id].experiment_recorder_manager
-        # manager.record(
-        #     message_registry.frame_type_for(request),
-        #     request.SerializeToString(),
-        # )
 
         return update_stock_assessment_pb2.UpdateStockAssessmentResponse(
             experiment_id=request.experiment_id
