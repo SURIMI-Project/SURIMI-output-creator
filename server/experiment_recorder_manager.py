@@ -43,6 +43,35 @@ class experiment_recorder_manager:
 
             logging.info(f"[recorder] finalised experiment {experiment_id}")
 
+    def cancel_experiment(self, experiment_id: str):
+        with self._lock:
+            if self._active_experiment_id != experiment_id:
+                logging.info(
+                    f"[recorder] ignoring cancel for {experiment_id} "
+                    f"(active={self._active_experiment_id})"
+                )
+                return
+
+            bin_path = os.path.join(self._base_dir, experiment_id, f"{experiment_id}.bin")
+            exp_dir  = os.path.join(self._base_dir, experiment_id)
+
+            self._recorder.close()
+            self._recorder = None
+            self._active_experiment_id = None
+
+            try:
+                os.remove(bin_path)
+                logging.info(f"[recorder] deleted partial recording: {bin_path}")
+            except OSError as e:
+                logging.error(f"[recorder] could not delete recording for {experiment_id}: {e}")
+
+            try:
+                os.rmdir(exp_dir)   # only succeeds if directory is now empty
+            except OSError:
+                pass
+
+            logging.info(f"[recorder] cancelled experiment {experiment_id}")
+
     def record(self, frame_type: int, payload: bytes):
         with self._lock:
             if self._recorder is None:
