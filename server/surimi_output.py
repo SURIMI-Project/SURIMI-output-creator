@@ -7,6 +7,7 @@ import xarray as xr
 import zarr.codecs
 from surimi.v1 import output_creator_service_pb2, simulation_pb2, experiment_step_pb2, update_catch_disposition_statistics_pb2, update_biomass_statistics_pb2
 from surimi.v1 import update_sales_statistics_pb2, update_species_prices_statistics_pb2, update_fishing_activity_statistics_pb2, finalise_experiment_pb2, update_sales_statistics_pb2
+from surimi.v1 import update_stock_assessment_pb2
 from surimi.v1 import double_statistics_pb2
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
@@ -168,6 +169,10 @@ class surimi_output:
         # Fishing activity data variable (time, fleet) 
         self.fishing_activity_data  = np.full((N_TIME, N_FLEET), np.nan, dtype=np.float32)
 
+        # Stock assessment records — collected on arrival, year axis built at write time
+        # Each entry: (year: int, sp_idx: int, stock_status: float, exploitation: float)
+        self._stock_assessment_records: list[tuple] = []
+
     def handle_message(self, message):
         """
         Generic entry point for all recorded messages.
@@ -175,16 +180,17 @@ class surimi_output:
         """
         method_name = message_registry.netcdf_method_for(message)
         if method_name is None:
+            logging.error(f"Unknown message type: {type(message).__name__}. No handler method found.")
             return  # unknown or unsupported message
 
         method = getattr(self, method_name)
         method(message)
 
     def experiment_step(self, request: experiment_step_pb2.ExperimentStepRequest):
-        logging.info(f"ExperimentStep for simulation {request.experiment_id}")
+        logging.info(f"ExperimentStep for experiment {request.experiment_id}")
 
     def UpdateBiomassStatistics(self, request: update_biomass_statistics_pb2.UpdateBiomassStatisticsRequest):
-        logging.info(f"UpdateBiomass for simulation {request.experiment_id}")
+        logging.info(f"UpdateBiomass for experiment {request.experiment_id}")
 
         # Convert protobuf Timestamp to Python datetime
         date_str = request.date_time.ToDatetime().strftime("%Y-%m-%d")
@@ -209,12 +215,12 @@ class surimi_output:
 
                 self.biomass_data[t_index, sp_idx, lat_i, lon_i] = cell.biomass.mean
 
-            logging.info(f"Updated biomass for species '{disp.species.species_code}' (stage='{disp.species.life_stage}'). {len(disp.biomass_cells_statistics)} cells updated.")
+            logging.debug(f"Updated biomass for species '{disp.species.species_code}' (stage='{disp.species.life_stage}'). {len(disp.biomass_cells_statistics)} cells updated.")
 
         logging.info(f"Updated biomass for time index {t_index}. {len(request.biomass_statistics_summary.biomass_grids_statistics)} grids updated.")
 
     def UpdateSalesStatistics(self, request: update_sales_statistics_pb2.UpdateSalesStatisticsRequest):
-        logging.info(f"UpdateSales for simulation {request.experiment_id}")
+        logging.info(f"UpdateSales for experiment {request.experiment_id}")
 
         # Convert protobuf Timestamp to Python datetime
         date_str = request.start_date_time.ToDatetime().strftime("%Y-%m-%d")
@@ -242,12 +248,12 @@ class surimi_output:
                 self.sales_value_data[t_index, sp_idx, fleet_idx, market_idx] = sale.value.mean
                 self.sales_quantity_data[t_index, sp_idx, fleet_idx, market_idx] = sale.quantity.mean
 
-            logging.info(f"Updated sales for species '{sale.species.species_code}' (stage='{sale.species.life_stage}'). {len(market.sales_statistics)} sales updated.")
+            logging.debug(f"Updated sales for species '{sale.species.species_code}' (stage='{sale.species.life_stage}'). {len(market.sales_statistics)} sales updated.")
 
         logging.info(f"Updated sales for time index {t_index} {len(request.sales_statistics_summary.market_sales_statistics)} markets updated.")
 
     def UpdateCatchDispositionStatistics(self, request: update_catch_disposition_statistics_pb2.UpdateCatchDispositionStatisticsRequest):
-        logging.info(f"UpdateCatchDispositionStatistics for simulation {request.experiment_id}")
+        logging.info(f"UpdateCatchDispositionStatistics for experiment {request.experiment_id}")
 
         # Convert protobuf Timestamp to Python datetime
         date_str = request.start_date_time.ToDatetime().strftime("%Y-%m-%d")
@@ -282,12 +288,12 @@ class surimi_output:
                 self.live_data[t_index, sp_idx, fleet_idx, lat_i, lon_i]  = cell.live_discards.mean
                 self.dead_data[t_index, sp_idx, fleet_idx, lat_i, lon_i]  = cell.dead_discards.mean
 
-            logging.info(f"Updated catch disposition for species '{disp.species.species_code}' (stage='{disp.species.life_stage}'), fleet '{disp.fleet_segment.gear_code}'/'{disp.fleet_segment.country_code}'. {len(disp.disposition_cells_statistics)} cells updated.")
+            logging.debug(f"Updated catch disposition for species '{disp.species.species_code}' (stage='{disp.species.life_stage}'), fleet '{disp.fleet_segment.gear_code}'/'{disp.fleet_segment.country_code}'. {len(disp.disposition_cells_statistics)} cells updated.")
 
         logging.info(f"Updated catch disposition for time index {t_index}. {len(request.catch_disposition_statistics_summary.disposition_grids_statistics)} grids updated.")
 
     def UpdateSpeciesPriceStatistics(self, request: update_species_prices_statistics_pb2.UpdateSpeciesPriceStatisticsRequest):
-        logging.info(f"UpdateSpeciesPriceStatistics for simulation {request.experiment_id}")
+        logging.info(f"UpdateSpeciesPriceStatistics for experiment {request.experiment_id}")
 
         for price in request.species_price_statistics_summary.species_prices_statistics:
             try:
@@ -305,7 +311,7 @@ class surimi_output:
             self.price_data[time_idx, sp_idx, market_idx, cat_idx] = price.price.mean
 
     def UpdateFishingActivityStatistics(self, request: update_fishing_activity_statistics_pb2.UpdateFishingActivityStatisticsRequest):
-        logging.info(f"UpdateFishingActivityStatistics for simulation {request.experiment_id}")
+        logging.info(f"UpdateFishingActivityStatistics for experiment {request.experiment_id}")
 
         # Convert protobuf Timestamp to Python datetime
         date_str = request.start_date_time.ToDatetime().strftime("%Y-%m-%d")
@@ -321,9 +327,26 @@ class surimi_output:
 
             self.fishing_activity_data[t_index, fleet_idx] = activity.fishing_activity_ratio.mean
 
-            logging.info(f"Updated fishing activity for fleet '{activity.fleet_segment.gear_code}'/'{activity.fleet_segment.country_code}'.")
+            logging.debug(f"Updated fishing activity for fleet '{activity.fleet_segment.gear_code}'/'{activity.fleet_segment.country_code}'.")
 
         logging.info(f"Updated fishing activity for time index {t_index}. {len(request.fishing_activity_statistics_summary.fishing_activities_statistics)} activities updated.")
+
+    def UpdateStockAssessment(self, request: update_stock_assessment_pb2.UpdateStockAssessmentRequest):
+        logging.info(f"UpdateStockAssessment for experiment {request.experiment_id}")
+
+        for species_assessment in request.stock_assessment_summary.species_stock_assessments:
+            try:
+                sp_idx = self.species_pairs.index((species_assessment.species.species_code, species_assessment.species.life_stage))
+            except ValueError:
+                raise ValueError(
+                    f"Unknown species combination (code='{species_assessment.species.species_code}', life_stage='{species_assessment.species.life_stage}')"
+                )
+
+            for sa in species_assessment.stock_assessments:
+                self._stock_assessment_records.append((sa.year, sp_idx, sa.stock_status, sa.exploitation))
+
+        logging.info(f"Collected stock assessment records for {len(request.stock_assessment_summary.species_stock_assessments)} species.")
+
 
     def finalise(self):
        # print(f"Finalise for simulation {request.experiment_id}")
@@ -351,6 +374,25 @@ class surimi_output:
         dims_sale  = ("time", "species", "fleet", "market")
         dims_activity = ("time", "fleet")
 
+        # Build stock assessment arrays from collected records
+        _stock_vars: dict = {}
+        _stock_coords: dict = {}
+        if self._stock_assessment_records:
+            _sa_years = sorted(set(r[0] for r in self._stock_assessment_records))
+            _N_YEAR = len(_sa_years)
+            _N_SPECIES = len(self.species_pairs)
+            _stock_status_arr = np.full((_N_YEAR, _N_SPECIES), np.nan, dtype=np.float32)
+            _exploitation_arr = np.full((_N_YEAR, _N_SPECIES), np.nan, dtype=np.float32)
+            for _year, _sp_idx, _ss, _expl in self._stock_assessment_records:
+                _y_idx = _sa_years.index(_year)
+                _stock_status_arr[_y_idx, _sp_idx] = _ss
+                _exploitation_arr[_y_idx, _sp_idx] = _expl
+            _stock_vars = {
+                "stock_status": (("year", "species"), _stock_status_arr),
+                "exploitation": (("year", "species"), _exploitation_arr),
+            }
+            _stock_coords = {"year": ("year", _sa_years)}
+
         ds = xr.Dataset(
             data_vars={
                 # Spatial data variables
@@ -375,6 +417,9 @@ class surimi_output:
                 # Fishing activity data variable
                 "fishing_activity": (dims_activity, self.fishing_activity_data),
 
+                # Stock assessment data variables (only present when data was received)
+                **_stock_vars,
+
                 # Lookup / label variables
                 "species_code":        ("species", self.species_codes),
                 "species_life_stage":  ("species", self.species_stages),
@@ -387,6 +432,7 @@ class surimi_output:
                 "time": ("time", self.time_list),
                 "lat":  ("lat", self.lat_values.astype(np.float32)),
                 "lon":  ("lon", self.lon_values.astype(np.float32)),
+                **_stock_coords,
             },
         )
 
@@ -453,6 +499,7 @@ class surimi_output:
             if hasattr(self, attribute):
                 setattr(self, attribute, None)
 
+        self._stock_assessment_records = []
         gc.collect()
 
     @staticmethod

@@ -7,6 +7,7 @@ from surimi.v1.update_sales_statistics_pb2 import UpdateSalesStatisticsRequest
 from surimi.v1.update_catch_disposition_statistics_pb2 import UpdateCatchDispositionStatisticsRequest
 from surimi.v1.update_fishing_activity_statistics_pb2 import UpdateFishingActivityStatisticsRequest
 from surimi.v1.update_species_prices_statistics_pb2 import UpdateSpeciesPriceStatisticsRequest
+from surimi.v1.update_stock_assessment_pb2 import UpdateStockAssessmentRequest
 
 
 class message_registry:
@@ -41,6 +42,11 @@ class message_registry:
             "frame_type": 6,
             "proto_cls": UpdateSpeciesPriceStatisticsRequest,
             "netcdf_method": "UpdateSpeciesPriceStatistics",
+        },
+        "surimi.v1.UpdateStockAssessmentRequest": {
+            "frame_type": 7,
+            "proto_cls": UpdateStockAssessmentRequest,
+            "netcdf_method": "UpdateStockAssessment",
         },
     }
 
