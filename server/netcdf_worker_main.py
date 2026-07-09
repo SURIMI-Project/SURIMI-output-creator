@@ -5,11 +5,12 @@ from datetime import datetime
 from pathlib import Path
 from binary_reader import binary_reader
 from server.surimi_output import OutputType, surimi_output
+from server.logging_formatter import configure_logging
 from surimi.v1 import simulation_pb2
 from server.s3_storage import S3_Storage
 
 def main():
-    logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(message)s', datefmt='%H:%M:%S')
+    configure_logging()
     experiment_id = sys.argv[1]     # The experiment ID is passed as the first command-line argument
     experiment_path = sys.argv[2]   # The path to the binary file containing the recorded protobuf messages for this experiment is passed as the second command-line argument
     output_path = sys.argv[3]       # The path to the output directory where the netCDF file should be written is passed as the third command-line argument
