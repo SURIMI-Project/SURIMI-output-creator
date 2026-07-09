@@ -1,3 +1,4 @@
+import logging
 import sys
 from datetime import datetime
 import grpc
@@ -28,7 +29,7 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
         end_date_info = ""
         if request.end_date_time.seconds != 0 or request.end_date_time.nanos != 0:
             end_date_info = f" and end date {request.end_date_time.ToDatetime()}"
-        print(f"Init experiment {request.experiment_id} for scenario {request.scenario_name} with start date {request.simulation.start_date_time.ToDatetime()} and step size {request.simulation.time_step} and end_date_time {end_date_info}")
+        logging.info(f"Init experiment {request.experiment_id} for scenario {request.scenario_name} with start date {request.simulation.start_date_time.ToDatetime()} and step size {request.simulation.time_step} and end_date_time {end_date_info}")
 
         new_exp = experiment(request.experiment_id, experiment_recorder_manager(), request.simulation)
         new_exp.end_date_time = request.end_date_time.ToDatetime()
@@ -56,7 +57,7 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
         if sim.time_step != "P1M":
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Error in experiment {request.experiment_id}: Only monthly steps are supported. Please set the step size to P1M.")
 
-        print(f"SimulateStep for experiment {request.experiment_id}")
+        logging.info(f"SimulateStep for experiment {request.experiment_id}")
 
         # sim.netcdf_file_instance.simulate_step(request)
 
@@ -76,7 +77,7 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
         if request.experiment_id not in self.experiment_dictionary:
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation Id {request.experiment_id} not known. Cannot finalise.")
 
-        print(f"Finalise for simulation {request.experiment_id}")
+        logging.info(f"Finalise for simulation {request.experiment_id}")
         self.experiment_dictionary[request.experiment_id].isFinalised = True
 
         self.experiment_dictionary[request.experiment_id].experiment_recorder_manager.finalise_experiment(request.experiment_id)
@@ -94,7 +95,7 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
         if request.experiment_id not in self.experiment_dictionary:
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation Id {request.experiment_id} not known. cannot cancel.")
 
-        print(f"Cancel for simulation {request.experiment_id}")
+        logging.info(f"Cancel for simulation {request.experiment_id}")
 
         sim = self.experiment_dictionary[request.experiment_id]
         sim.netcdf_file_instance.cancel(request)
@@ -113,7 +114,7 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
         if not request.experiment_id in self.experiment_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation Id {request.experiment_id} not known.")
 
-        print(f"Update CatchDisposition for simulation {request.experiment_id} ")
+        logging.info(f"Update CatchDisposition for simulation {request.experiment_id} ")
 
         # print(request)  # for debugging purposes
 
@@ -135,7 +136,7 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
         if request.experiment_id not in self.experiment_dictionary:
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation Id {request.experiment_id} not known. Cannot update biomass.")
 
-        print(f"Update biomass for simulation {request.experiment_id}")
+        logging.info(f"Update biomass for simulation {request.experiment_id}")
         # print(request)  # for debugging purposes
 
         experiment_id = self.experiment_dictionary[request.experiment_id].experiment_id
@@ -155,7 +156,7 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
         if not request.experiment_id in self.experiment_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Experiment Id {request.experiment_id} not known. Cannot update fishing activity.")
 
-        print(f"Update Fishing Activity for experiment {request.experiment_id} ")
+        logging.info(f"Update Fishing Activity for experiment {request.experiment_id} ")
 
         experiment_id = self.experiment_dictionary[request.experiment_id].experiment_id
         if experiment_id not in self.experiment_dictionary:
@@ -175,7 +176,7 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
         if not request.experiment_id in self.experiment_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Experiment Id {request.experiment_id} not known. Cannot update sales.")
 
-        print(f"Update Sales for experiment {request.experiment_id} ")
+        logging.info(f"Update Sales for experiment {request.experiment_id} ")
 
         # print(request)  # for debugging purposes
 
@@ -197,7 +198,7 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
         if not request.experiment_id in self.experiment_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Experiment Id {request.experiment_id} not known. Cannot update species prices.")
 
-        print(f"Update SpeciesPrices for experiment {request.experiment_id} ")
+        logging.info(f"Update SpeciesPrices for experiment {request.experiment_id} ")
 
         # print(request)  # for debugging purposes
 
@@ -219,9 +220,9 @@ class OutputCreatorService(output_creator_service_pb2_grpc.OutputCreatorServiceS
         if not request.experiment_id in self.experiment_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Experiment Id {request.experiment_id} not known. Cannot update stock assessment.")
 
-        print(f"Update StockAssessment for experiment {request.experiment_id} ")
+        logging.info(f"Update StockAssessment for experiment {request.experiment_id} ")
 
-        print(request)  # for debugging purposes
+        logging.info(str(request))  # for debugging purposes
 
         # experiment_id = request.experiment_id
         # if experiment_id not in self.experiment_dictionary:

@@ -1,3 +1,4 @@
+import logging
 import os
 
 from concurrent import futures
@@ -13,22 +14,23 @@ from importlib.metadata import version, PackageNotFoundError
 from grpc_reflection.v1alpha import reflection
 
 def serve():
+    logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(message)s', datefmt='%H:%M:%S')
     load_dotenv()  # Load environment variables from .env file
     
     experiment_dictionary: dict[str, experiment] = {}   # This dictionary will hold the current experiment instance, keyed by experiment_id
     VaultService.LoadVaultSecretsInEnvironmentVariables()  # Load secrets from Vault into environment variables
 
     # Print all environment variables
-    print("=" * 80)
-    print("Environment Variables:")
-    print("=" * 80)
+    logging.info("=" * 80)
+    logging.info("Environment Variables:")
+    logging.info("=" * 80)
     for key, value in sorted(os.environ.items()):
-        print(f"{key}: {value}")
-    print("=" * 80)
+        logging.info(f"{key}: {value}")
+    logging.info("=" * 80)
 
 
     version = load_version("surimi_surimi_protocol_grpc_python")
-    print("Starting gRPC Server... with protocol version:", version)
+    logging.info(f"Starting gRPC Server... with protocol version: {version}")
 
     # Create the server with 100MB message size limit
     max_message_length = 100 * 1024 * 1024  # 100MB
@@ -54,13 +56,13 @@ def serve():
     # Bind the server to a port
     server.add_insecure_port("[::]:5189")
     server.start()
-    print("[OK] gRPC Server running on port 5189")
+    logging.info("[OK] gRPC Server running on port 5189")
 
     # Wait for the server to stop
     try:
         server.wait_for_termination()
     except KeyboardInterrupt:
-        print("\n[INFO] Server shutting down...")
+        logging.info("Server shutting down...")
 
 def load_version(package_name: str) -> str:
     try:

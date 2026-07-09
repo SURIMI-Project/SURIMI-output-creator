@@ -1,4 +1,5 @@
 from enum import Enum
+import logging
 from pathlib import Path
 import gc
 import numpy as np
@@ -21,7 +22,7 @@ _TARGET_CHUNK_BYTES = 1_048_576
 
 class surimi_output:
     def __init__(self, simulation: simulation_pb2.Simulation, output_directory, experiment_id, end_date_time, file_type: OutputType):
-        print(f"Entered surimi_output with output directory: {output_directory}")
+        logging.info(f"Entered surimi_output with output directory: {output_directory}")
         self.simulation = simulation
         self.output_location = output_directory
         self.experiment_id = experiment_id
@@ -33,7 +34,7 @@ class surimi_output:
         else:
             self.output_location = output_directory + f"/{self.experiment_id}.nc"
 
-        print(f"NetCDF file will use end date: {self.end_date_time}")
+        logging.info(f"NetCDF file will use end date: {self.end_date_time}")
         # ----------------------------------------------------------
         # 1. RASTER GRID DEFINITION
         # ----------------------------------------------------------
@@ -70,7 +71,7 @@ class surimi_output:
             current = current + relativedelta(months=1)
 
         N_TIME = len(self.time_list)
-        print(f"Time axis: {N_TIME} monthly steps from {self.time_list[0]} to {self.time_list[-1]}")
+        logging.info(f"Time axis: {N_TIME} monthly steps from {self.time_list[0]} to {self.time_list[-1]}")
         #
         # ----------------------------------------------------------
         # 3. SPECIES & FLEET DEFINITIONS
@@ -116,7 +117,7 @@ class surimi_output:
         N_MARKET = len(self.market_codes)
         N_CATEGORY = len(self.category_codes)
 
-        print(f"Defined {N_SPECIES} species/stage combinations, {N_FLEET} fleet segments, {N_MARKET} market codes, {N_CATEGORY} category codes.")
+        logging.info(f"Defined {N_SPECIES} species/stage combinations, {N_FLEET} fleet segments, {N_MARKET} market codes, {N_CATEGORY} category codes.")
         
         #
         # ----------------------------------------------------------
@@ -140,24 +141,24 @@ class surimi_output:
         # print(f"Allocating 3 spatial arrays of shape {spatial_shape_fleet} = {spatial_bytes / 1024**2:.1f} MB each, {3 * spatial_bytes / 1024**2:.1f} MB total")
 
         self.gross_data = np.full((N_TIME, N_SPECIES, N_FLEET, N_LAT, N_LON), np.nan, dtype=np.float32)
-        print("done pre-allocating gross data array")
+        logging.info("done pre-allocating gross data array")
 
         self.live_data  = np.full((N_TIME, N_SPECIES, N_FLEET, N_LAT, N_LON), np.nan, dtype=np.float32)
-        print("done pre-allocating live data array")
+        logging.info("done pre-allocating live data array")
 
         self.dead_data  = np.full((N_TIME, N_SPECIES, N_FLEET, N_LAT, N_LON), np.nan, dtype=np.float32)
-        print("done pre-allocating dead data array")
+        logging.info("done pre-allocating dead data array")
 
         self.biomass_data  = np.full((N_TIME, N_SPECIES, N_LAT, N_LON), np.nan, dtype=np.float32)
-        print("done pre-allocating biomass data array")
+        logging.info("done pre-allocating biomass data array")
 
-        print(f"Pre-allocated data arrays: gross/live/dead catch and discards with shape {self.gross_data.shape} and fill value {self.fill_value}")
+        logging.info(f"Pre-allocated data arrays: gross/live/dead catch and discards with shape {self.gross_data.shape} and fill value {self.fill_value}")
         # Total data variables (time, species, fleet) – no lat/lon
         self.gross_total_data = np.full((N_TIME, N_SPECIES, N_FLEET), np.nan, dtype=np.float32)
         self.live_total_data  = np.full((N_TIME, N_SPECIES, N_FLEET), np.nan, dtype=np.float32)
         self.dead_total_data  = np.full((N_TIME, N_SPECIES, N_FLEET), np.nan, dtype=np.float32)
         self.biomass_total_data  = np.full((N_TIME, N_SPECIES), np.nan, dtype=np.float32)
-        print("done pre-allocating total data arrays")
+        logging.info("done pre-allocating total data arrays")
 
         # Price data variable (time, species, market, category)
         self.price_data = np.full((N_TIME, N_SPECIES, N_MARKET, N_CATEGORY), np.nan, dtype=np.float32)
@@ -180,10 +181,10 @@ class surimi_output:
         method(message)
 
     def experiment_step(self, request: experiment_step_pb2.ExperimentStepRequest):
-        print(f"ExperimentStep for simulation {request.experiment_id}")
+        logging.info(f"ExperimentStep for simulation {request.experiment_id}")
 
     def UpdateBiomassStatistics(self, request: update_biomass_statistics_pb2.UpdateBiomassStatisticsRequest):
-        print(f"UpdateBiomass for simulation {request.experiment_id}")
+        logging.info(f"UpdateBiomass for simulation {request.experiment_id}")
 
         # Convert protobuf Timestamp to Python datetime
         date_str = request.date_time.ToDatetime().strftime("%Y-%m-%d")
@@ -208,12 +209,12 @@ class surimi_output:
 
                 self.biomass_data[t_index, sp_idx, lat_i, lon_i] = cell.biomass.mean
 
-            print(f"Updated biomass for species '{disp.species.species_code}' (stage='{disp.species.life_stage}'). {len(disp.biomass_cells_statistics)} cells updated.")
+            logging.info(f"Updated biomass for species '{disp.species.species_code}' (stage='{disp.species.life_stage}'). {len(disp.biomass_cells_statistics)} cells updated.")
 
-        print(f"Updated biomass for time index {t_index}. {len(request.biomass_statistics_summary.biomass_grids_statistics)} grids updated.")
+        logging.info(f"Updated biomass for time index {t_index}. {len(request.biomass_statistics_summary.biomass_grids_statistics)} grids updated.")
 
     def UpdateSalesStatistics(self, request: update_sales_statistics_pb2.UpdateSalesStatisticsRequest):
-        print(f"UpdateSales for simulation {request.experiment_id}")
+        logging.info(f"UpdateSales for simulation {request.experiment_id}")
 
         # Convert protobuf Timestamp to Python datetime
         date_str = request.start_date_time.ToDatetime().strftime("%Y-%m-%d")
@@ -241,12 +242,12 @@ class surimi_output:
                 self.sales_value_data[t_index, sp_idx, fleet_idx, market_idx] = sale.value.mean
                 self.sales_quantity_data[t_index, sp_idx, fleet_idx, market_idx] = sale.quantity.mean
 
-            print(f"Updated sales for species '{sale.species.species_code}' (stage='{sale.species.life_stage}'). {len(market.sales_statistics)} sales updated.")
+            logging.info(f"Updated sales for species '{sale.species.species_code}' (stage='{sale.species.life_stage}'). {len(market.sales_statistics)} sales updated.")
 
-        print(f"Updated sales for time index {t_index} {len(request.sales_statistics_summary.market_sales_statistics)} markets updated.")
+        logging.info(f"Updated sales for time index {t_index} {len(request.sales_statistics_summary.market_sales_statistics)} markets updated.")
 
     def UpdateCatchDispositionStatistics(self, request: update_catch_disposition_statistics_pb2.UpdateCatchDispositionStatisticsRequest):
-        print(f"UpdateCatchDispositionStatistics for simulation {request.experiment_id}")
+        logging.info(f"UpdateCatchDispositionStatistics for simulation {request.experiment_id}")
 
         # Convert protobuf Timestamp to Python datetime
         date_str = request.start_date_time.ToDatetime().strftime("%Y-%m-%d")
@@ -281,12 +282,12 @@ class surimi_output:
                 self.live_data[t_index, sp_idx, fleet_idx, lat_i, lon_i]  = cell.live_discards.mean
                 self.dead_data[t_index, sp_idx, fleet_idx, lat_i, lon_i]  = cell.dead_discards.mean
 
-            print(f"Updated catch disposition for species '{disp.species.species_code}' (stage='{disp.species.life_stage}'), fleet '{disp.fleet_segment.gear_code}'/'{disp.fleet_segment.country_code}'. {len(disp.disposition_cells_statistics)} cells updated.")
+            logging.info(f"Updated catch disposition for species '{disp.species.species_code}' (stage='{disp.species.life_stage}'), fleet '{disp.fleet_segment.gear_code}'/'{disp.fleet_segment.country_code}'. {len(disp.disposition_cells_statistics)} cells updated.")
 
-        print(f"Updated catch disposition for time index {t_index}. {len(request.catch_disposition_statistics_summary.disposition_grids_statistics)} grids updated.")
+        logging.info(f"Updated catch disposition for time index {t_index}. {len(request.catch_disposition_statistics_summary.disposition_grids_statistics)} grids updated.")
 
     def UpdateSpeciesPriceStatistics(self, request: update_species_prices_statistics_pb2.UpdateSpeciesPriceStatisticsRequest):
-        print(f"UpdateSpeciesPriceStatistics for simulation {request.experiment_id}")
+        logging.info(f"UpdateSpeciesPriceStatistics for simulation {request.experiment_id}")
 
         for price in request.species_price_statistics_summary.species_prices_statistics:
             try:
@@ -304,7 +305,7 @@ class surimi_output:
             self.price_data[time_idx, sp_idx, market_idx, cat_idx] = price.price.mean
 
     def UpdateFishingActivityStatistics(self, request: update_fishing_activity_statistics_pb2.UpdateFishingActivityStatisticsRequest):
-        print(f"UpdateFishingActivityStatistics for simulation {request.experiment_id}")
+        logging.info(f"UpdateFishingActivityStatistics for simulation {request.experiment_id}")
 
         # Convert protobuf Timestamp to Python datetime
         date_str = request.start_date_time.ToDatetime().strftime("%Y-%m-%d")
@@ -320,18 +321,18 @@ class surimi_output:
 
             self.fishing_activity_data[t_index, fleet_idx] = activity.fishing_activity_ratio.mean
 
-            print(f"Updated fishing activity for fleet '{activity.fleet_segment.gear_code}'/'{activity.fleet_segment.country_code}'.")
+            logging.info(f"Updated fishing activity for fleet '{activity.fleet_segment.gear_code}'/'{activity.fleet_segment.country_code}'.")
 
-        print(f"Updated fishing activity for time index {t_index}. {len(request.fishing_activity_statistics_summary.fishing_activities_statistics)} activities updated.")
+        logging.info(f"Updated fishing activity for time index {t_index}. {len(request.fishing_activity_statistics_summary.fishing_activities_statistics)} activities updated.")
 
     def finalise(self):
        # print(f"Finalise for simulation {request.experiment_id}")
         try:
             self._write_dataset()
-            print(f"Surimi output written to: {self.output_location}")
+            logging.info(f"Surimi output written to: {self.output_location}")
         finally:
             self._release_memory()
-            print("Released in-memory XArray buffers")
+            logging.info("Released in-memory XArray buffers")
 
     #
     # ----------------------------------------------------------
