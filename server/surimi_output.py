@@ -141,17 +141,21 @@ class surimi_output:
         # spatial_bytes = int(np.prod(spatial_shape_fleet)) * 4  # float32 = 4 bytes
         # print(f"Allocating 3 spatial arrays of shape {spatial_shape_fleet} = {spatial_bytes / 1024**2:.1f} MB each, {3 * spatial_bytes / 1024**2:.1f} MB total")
 
-        self.gross_data = np.full((N_TIME, N_SPECIES, N_FLEET, N_LAT, N_LON), np.nan, dtype=np.float32)
-        logging.info("done pre-allocating gross data array")
+        try:
+            self.gross_data = np.full((N_TIME, N_SPECIES, N_FLEET, N_LAT, N_LON), np.nan, dtype=np.float32)
+            logging.info("done pre-allocating gross data array")
 
-        self.live_data  = np.full((N_TIME, N_SPECIES, N_FLEET, N_LAT, N_LON), np.nan, dtype=np.float32)
-        logging.info("done pre-allocating live data array")
+            self.live_data  = np.full((N_TIME, N_SPECIES, N_FLEET, N_LAT, N_LON), np.nan, dtype=np.float32)
+            logging.info("done pre-allocating live data array")
 
-        self.dead_data  = np.full((N_TIME, N_SPECIES, N_FLEET, N_LAT, N_LON), np.nan, dtype=np.float32)
-        logging.info("done pre-allocating dead data array")
+            self.dead_data  = np.full((N_TIME, N_SPECIES, N_FLEET, N_LAT, N_LON), np.nan, dtype=np.float32)
+            logging.info("done pre-allocating dead data array")
 
-        self.biomass_data  = np.full((N_TIME, N_SPECIES, N_LAT, N_LON), np.nan, dtype=np.float32)
-        logging.info("done pre-allocating biomass data array")
+            self.biomass_data  = np.full((N_TIME, N_SPECIES, N_LAT, N_LON), np.nan, dtype=np.float32)
+            logging.info("done pre-allocating biomass data array")
+        except MemoryError as e:
+            logging.error(f"Memory allocation failed: {e}")
+            raise
 
         logging.info(f"Pre-allocated data arrays: gross/live/dead catch and discards with shape {self.gross_data.shape} and fill value {self.fill_value}")
         # Total data variables (time, species, fleet) – no lat/lon
