@@ -137,9 +137,12 @@ class surimi_output:
         )
 
         # Spatial data variables (time, species, fleet, lat, lon)
-        # spatial_shape_fleet = (N_TIME, N_SPECIES, N_FLEET, N_LAT, N_LON)
-        # spatial_bytes = int(np.prod(spatial_shape_fleet)) * 4  # float32 = 4 bytes
-        # print(f"Allocating 3 spatial arrays of shape {spatial_shape_fleet} = {spatial_bytes / 1024**2:.1f} MB each, {3 * spatial_bytes / 1024**2:.1f} MB total")
+        spatial_shape_fleet = (N_TIME, N_SPECIES, N_FLEET, N_LAT, N_LON)
+        spatial_shape_biomass = (N_TIME, N_SPECIES, N_LAT, N_LON)
+        spatial_bytes_fleet = int(np.prod(spatial_shape_fleet)) * 4  # float32 = 4 bytes
+        spatial_bytes_biomass = int(np.prod(spatial_shape_biomass)) * 4
+        total_spatial_bytes = 3 * spatial_bytes_fleet + spatial_bytes_biomass
+        logging.info(f"Allocating spatial arrays: 3x {spatial_shape_fleet} ({spatial_bytes_fleet / 1024**2:.1f} MB each) + biomass {spatial_shape_biomass} ({spatial_bytes_biomass / 1024**2:.1f} MB) = {total_spatial_bytes / 1024**2:.1f} MB total")
 
         try:
             self.gross_data = np.full((N_TIME, N_SPECIES, N_FLEET, N_LAT, N_LON), np.nan, dtype=np.float32)
