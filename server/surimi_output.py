@@ -2,6 +2,7 @@ from enum import Enum
 import logging
 from pathlib import Path
 import gc
+import netCDF4
 import numpy as np
 import xarray as xr
 import zarr.codecs
@@ -55,6 +56,11 @@ class surimi_output:
 
         N_LAT = len(self.lat_values)
         N_LON = len(self.lon_values)
+
+        # Fast O(1) coordinate → array-index lookup (keyed to 6 d.p. to absorb
+        # minor floating-point differences between the grid and cell coordinates)
+        self._lat_to_idx: dict[float, int] = {round(float(v), 6): i for i, v in enumerate(self.lat_values)}
+        self._lon_to_idx: dict[float, int] = {round(float(v), 6): i for i, v in enumerate(self.lon_values)}
 
         #
         # ----------------------------------------------------------
@@ -119,10 +125,10 @@ class surimi_output:
         N_CATEGORY = len(self.category_codes)
 
         logging.info(f"Defined {N_SPECIES} species/stage combinations, {N_FLEET} fleet segments, {N_MARKET} market codes, {N_CATEGORY} category codes.")
-        
+
         #
         # ----------------------------------------------------------
-        # 4. PRE-ALLOCATE IN-MEMORY ARRAYS (NaN = missing)
+        # 4. ALLOCATE IN-MEMORY ARRAYS / OPEN OUTPUT FILE
         # ----------------------------------------------------------
         #
 
@@ -136,31 +142,41 @@ class surimi_output:
             "kg",
         )
 
-        # Spatial data variables (time, species, fleet, lat, lon)
-        spatial_shape_fleet = (N_TIME, N_SPECIES, N_FLEET, N_LAT, N_LON)
-        spatial_shape_biomass = (N_TIME, N_SPECIES, N_LAT, N_LON)
-        spatial_bytes_fleet = int(np.prod(spatial_shape_fleet)) * 4  # float32 = 4 bytes
-        spatial_bytes_biomass = int(np.prod(spatial_shape_biomass)) * 4
-        total_spatial_bytes = 3 * spatial_bytes_fleet + spatial_bytes_biomass
-        logging.info(f"Allocating spatial arrays: 3x {spatial_shape_fleet} ({spatial_bytes_fleet / 1024**2:.1f} MB each) + biomass {spatial_shape_biomass} ({spatial_bytes_biomass / 1024**2:.1f} MB) = {total_spatial_bytes / 1024**2:.1f} MB total")
+        # Store dimension sizes for use in update handlers
+        self.N_TIME     = N_TIME
+        self.N_SPECIES  = N_SPECIES
+        self.N_FLEET    = N_FLEET
+        self.N_LAT      = N_LAT
+        self.N_LON      = N_LON
+        self.N_MARKET   = N_MARKET
+        self.N_CATEGORY = N_CATEGORY
 
-        try:
-            self.gross_data = np.full((N_TIME, N_SPECIES, N_FLEET, N_LAT, N_LON), np.nan, dtype=np.float32)
-            logging.info("done pre-allocating gross data array")
-
-            self.live_data  = np.full((N_TIME, N_SPECIES, N_FLEET, N_LAT, N_LON), np.nan, dtype=np.float32)
-            logging.info("done pre-allocating live data array")
-
-            self.dead_data  = np.full((N_TIME, N_SPECIES, N_FLEET, N_LAT, N_LON), np.nan, dtype=np.float32)
-            logging.info("done pre-allocating dead data array")
-
-            self.biomass_data  = np.full((N_TIME, N_SPECIES, N_LAT, N_LON), np.nan, dtype=np.float32)
-            logging.info("done pre-allocating biomass data array")
-        except MemoryError as e:
-            logging.error(f"Memory allocation failed: {e}")
-            raise
-
-        logging.info(f"Pre-allocated data arrays: gross/live/dead catch and discards with shape {self.gross_data.shape} and fill value {self.fill_value}")
+        if self.file_type == OutputType.NET_CDF:
+            # Open the output file immediately and write spatial data one time step
+            # at a time.  This avoids allocating ~40 GB of arrays for large simulations.
+            self.gross_data   = None
+            self.live_data    = None
+            self.dead_data    = None
+            self.biomass_data = None
+            self._nc_file     = None
+            self._init_netcdf_file(N_TIME, N_SPECIES, N_FLEET, N_LAT, N_LON, N_MARKET, N_CATEGORY)
+        else:
+            # Zarr: pre-allocate full in-memory arrays
+            spatial_shape_fleet   = (N_TIME, N_SPECIES, N_FLEET, N_LAT, N_LON)
+            spatial_shape_biomass = (N_TIME, N_SPECIES, N_LAT, N_LON)
+            spatial_bytes_fleet   = int(np.prod(spatial_shape_fleet)) * 4  # float32 = 4 bytes
+            spatial_bytes_biomass = int(np.prod(spatial_shape_biomass)) * 4
+            total_spatial_bytes   = 3 * spatial_bytes_fleet + spatial_bytes_biomass
+            logging.info(f"Allocating spatial arrays: 3x {spatial_shape_fleet} ({spatial_bytes_fleet / 1024**2:.1f} MB each) + biomass {spatial_shape_biomass} ({spatial_bytes_biomass / 1024**2:.1f} MB) = {total_spatial_bytes / 1024**2:.1f} MB total")
+            try:
+                self.gross_data   = np.full(spatial_shape_fleet,   np.nan, dtype=np.float32)
+                self.live_data    = np.full(spatial_shape_fleet,   np.nan, dtype=np.float32)
+                self.dead_data    = np.full(spatial_shape_fleet,   np.nan, dtype=np.float32)
+                self.biomass_data = np.full(spatial_shape_biomass, np.nan, dtype=np.float32)
+                logging.info(f"Pre-allocated spatial arrays with shape {self.gross_data.shape} and fill value {self.fill_value}")
+            except MemoryError as e:
+                logging.error(f"Memory allocation failed: {e}")
+                raise
         # Total data variables (time, species, fleet) – no lat/lon
         self.gross_total_data = np.full((N_TIME, N_SPECIES, N_FLEET), np.nan, dtype=np.float32)
         self.live_total_data  = np.full((N_TIME, N_SPECIES, N_FLEET), np.nan, dtype=np.float32)
@@ -203,8 +219,8 @@ class surimi_output:
         date_str = request.date_time.ToDatetime().strftime("%Y-%m-%d")
         t_index = self.find_time_index(date_str)
 
-        # Clear this time slice (NaN represents missing data)
-        self.biomass_data[t_index] = np.nan
+        # Build a single-time-step buffer (never holds more than one slice in RAM)
+        biomass_slice = np.full((self.N_SPECIES, self.N_LAT, self.N_LON), np.nan, dtype=np.float32)
 
         for disp in request.biomass_statistics_summary.biomass_grids_statistics:
             try:
@@ -216,13 +232,19 @@ class surimi_output:
 
             self.biomass_total_data[t_index, sp_idx] = sum(cell.biomass.mean for cell in disp.biomass_cells_statistics)
 
-            for cell in disp.biomass_cells_statistics:
-                lat_i = self.find_nearest_index(self.lat_values, cell.latitude)
-                lon_i = self.find_nearest_index(self.lon_values, cell.longitude)
-
-                self.biomass_data[t_index, sp_idx, lat_i, lon_i] = cell.biomass.mean
+            cells = disp.biomass_cells_statistics
+            if cells:
+                lat_is = [self._lat_to_idx.get(round(c.latitude, 6),  self.find_nearest_index(self.lat_values, c.latitude))  for c in cells]
+                lon_is = [self._lon_to_idx.get(round(c.longitude, 6), self.find_nearest_index(self.lon_values, c.longitude)) for c in cells]
+                biomass_slice[sp_idx, lat_is, lon_is] = [c.biomass.mean for c in cells]
 
             logging.debug(f"Updated biomass for species '{disp.species.species_code}' (stage='{disp.species.life_stage}'). {len(disp.biomass_cells_statistics)} cells updated.")
+
+        # Write slice to the appropriate backing store
+        if self.file_type == OutputType.NET_CDF:
+            self._nc_biomass[t_index] = biomass_slice
+        else:
+            self.biomass_data[t_index] = biomass_slice
 
         logging.info(f"Updated biomass for time index {t_index}. {len(request.biomass_statistics_summary.biomass_grids_statistics)} grids updated.")
 
@@ -266,10 +288,10 @@ class surimi_output:
         date_str = request.start_date_time.ToDatetime().strftime("%Y-%m-%d")
         t_index = self.find_time_index(date_str)
 
-        # Clear this time slice (NaN represents missing data)
-        self.gross_data[t_index] = np.nan
-        self.live_data[t_index]  = np.nan
-        self.dead_data[t_index]  = np.nan
+        # Build per-time-step buffers (never hold the full time-series in RAM)
+        gross_slice = np.full((self.N_SPECIES, self.N_FLEET, self.N_LAT, self.N_LON), np.nan, dtype=np.float32)
+        live_slice  = np.full_like(gross_slice, np.nan)
+        dead_slice  = np.full_like(gross_slice, np.nan)
 
         for disp in request.catch_disposition_statistics_summary.disposition_grids_statistics:
             try:
@@ -287,15 +309,25 @@ class surimi_output:
             self.live_total_data[t_index, sp_idx, fleet_idx]  = sum(cell.live_discards.mean for cell in disp.disposition_cells_statistics)
             self.dead_total_data[t_index, sp_idx, fleet_idx]  = sum(cell.dead_discards.mean for cell in disp.disposition_cells_statistics)
 
-            for cell in disp.disposition_cells_statistics:
-                lat_i = self.find_nearest_index(self.lat_values, cell.latitude)
-                lon_i = self.find_nearest_index(self.lon_values, cell.longitude)
-
-                self.gross_data[t_index, sp_idx, fleet_idx, lat_i, lon_i] = cell.gross_catch.mean
-                self.live_data[t_index, sp_idx, fleet_idx, lat_i, lon_i]  = cell.live_discards.mean
-                self.dead_data[t_index, sp_idx, fleet_idx, lat_i, lon_i]  = cell.dead_discards.mean
+            cells = disp.disposition_cells_statistics
+            if cells:
+                lat_is    = [self._lat_to_idx.get(round(c.latitude, 6),  self.find_nearest_index(self.lat_values, c.latitude))  for c in cells]
+                lon_is    = [self._lon_to_idx.get(round(c.longitude, 6), self.find_nearest_index(self.lon_values, c.longitude)) for c in cells]
+                gross_slice[sp_idx, fleet_idx, lat_is, lon_is] = [c.gross_catch.mean   for c in cells]
+                live_slice[sp_idx, fleet_idx, lat_is, lon_is]  = [c.live_discards.mean for c in cells]
+                dead_slice[sp_idx, fleet_idx, lat_is, lon_is]  = [c.dead_discards.mean for c in cells]
 
             logging.debug(f"Updated catch disposition for species '{disp.species.species_code}' (stage='{disp.species.life_stage}'), fleet '{disp.fleet_segment.gear_code}'/'{disp.fleet_segment.country_code}'. {len(disp.disposition_cells_statistics)} cells updated.")
+
+        # Write slices to the appropriate backing store
+        if self.file_type == OutputType.NET_CDF:
+            self._nc_gross_catch[t_index]   = gross_slice
+            self._nc_live_discards[t_index] = live_slice
+            self._nc_dead_discards[t_index] = dead_slice
+        else:
+            self.gross_data[t_index] = gross_slice
+            self.live_data[t_index]  = live_slice
+            self.dead_data[t_index]  = dead_slice
 
         logging.info(f"Updated catch disposition for time index {t_index}. {len(request.catch_disposition_statistics_summary.disposition_grids_statistics)} grids updated.")
 
@@ -371,8 +403,17 @@ class surimi_output:
     #
 
     def _write_dataset(self):
-        """Build an xarray Dataset from in-memory arrays and write to output."""
+        """Write output to the backing file.
 
+        For NetCDF the large spatial arrays are already written incrementally;
+        only the remaining small variables need to be added.
+        For Zarr the full in-memory arrays are serialised in one shot via xarray.
+        """
+        if self.file_type == OutputType.NET_CDF:
+            self._finalize_netcdf_file()
+            return
+
+        # --- Zarr path ---
         dims_5d    = ("time", "species", "fleet", "lat", "lon")
         dims_4d    = ("time", "species", "lat", "lon")
         dims_3d    = ("time", "species", "fleet")
@@ -402,32 +443,19 @@ class surimi_output:
 
         ds = xr.Dataset(
             data_vars={
-                # Spatial data variables
                 "gross_catch":   (dims_5d, self.gross_data, {"units": self.mass_unit}),
                 "live_discards": (dims_5d, self.live_data,  {"units": self.mass_unit}),
                 "dead_discards": (dims_5d, self.dead_data,  {"units": self.mass_unit}),
                 "biomass":       (dims_4d, self.biomass_data, {"units": self.mass_unit}),
-
-                # Total (non-spatial) data variables
                 "gross_catch_total":   (dims_3d, self.gross_total_data, {"units": self.mass_unit}),
                 "live_discards_total": (dims_3d, self.live_total_data,  {"units": self.mass_unit}),
                 "dead_discards_total": (dims_3d, self.dead_total_data,  {"units": self.mass_unit}),
                 "biomass_total":       (dims_2d, self.biomass_total_data, {"units": self.mass_unit}),
-
-                # Price data variable
                 "price": (dims_price, self.price_data, {"units": "EUR"}),
-
-                # Sales data variables
                 "sales_value":    (dims_sale, self.sales_value_data, {"units": "EUR"}),
                 "sales_quantity": (dims_sale, self.sales_quantity_data, {"units": "kg"}),
-
-                # Fishing activity data variable
                 "fishing_activity": (dims_activity, self.fishing_activity_data),
-
-                # Stock assessment data variables (only present when data was received)
                 **_stock_vars,
-
-                # Lookup / label variables
                 "species_code":        ("species", self.species_codes),
                 "species_life_stage":  ("species", self.species_stages),
                 "market_code":         ("market", self.market_codes),
@@ -443,51 +471,158 @@ class surimi_output:
             },
         )
 
-        # ----------------------------------------------------------
-        # Per-variable encoding
-        # ----------------------------------------------------------
         encoding = {}
-
-        if(self.file_type == OutputType.ZARR):
-            for name, var in ds.data_vars.items():
-                if var.dtype.kind == "f":
-                    encoding[name] = {
-                        "chunks": self._optimal_chunksizes(var.shape),
-                        "compressor": zarr.codecs.BloscCodec(cname="zstd", clevel=3, shuffle=zarr.codecs.BloscShuffle.shuffle),
-                        "fill_value": self.fill_value,
-                    }
-            ds.to_zarr(
-                self.output_location,
-                mode="w",
-                encoding=encoding,
-                consolidated=True,
-            )
-        else:
-            for name, var in ds.data_vars.items():
-                if var.dtype.kind == "f":  # float variables only
-                    encoding[name] = {
-                        "_FillValue": self.fill_value,
-                        "zlib": True,
-                        "complevel": 4,
-                        "chunksizes": self._optimal_chunksizes(var.shape),
-                    }
-
-            # Time coordinate encoding (CF-conventions)
-            encoding["time"] = {
-                "units": "seconds since 1970-01-01 00:00:00",
-                "calendar": "gregorian",
-            }
-            ds.to_netcdf(
-                    self.output_location,
-                    format="NETCDF4",
-                    unlimited_dims=["time"],
-                    encoding=encoding,
-                )
-
+        for name, var in ds.data_vars.items():
+            if var.dtype.kind == "f":
+                encoding[name] = {
+                    "chunks": self._optimal_chunksizes(var.shape),
+                    "compressor": zarr.codecs.BloscCodec(cname="zstd", clevel=3, shuffle=zarr.codecs.BloscShuffle.shuffle),
+                    "fill_value": self.fill_value,
+                }
+        ds.to_zarr(
+            self.output_location,
+            mode="w",
+            encoding=encoding,
+            consolidated=True,
+        )
         ds.close()
+
+    # ----------------------------------------------------------
+    # NetCDF4 incremental-write helpers
+    # ----------------------------------------------------------
+
+    def _init_netcdf_file(self, N_TIME, N_SPECIES, N_FLEET, N_LAT, N_LON, N_MARKET, N_CATEGORY):
+        """Create the NetCDF4 file, define all dimensions / coordinates, and
+        open the large spatial variables for incremental time-slice writes."""
+
+        Path(self.output_location).parent.mkdir(parents=True, exist_ok=True)
+        nc = netCDF4.Dataset(self.output_location, "w", format="NETCDF4")
+        self._nc_file = nc
+
+        # Dimensions (time is unlimited so the file stays valid even if fewer
+        # steps are written than expected)
+        nc.createDimension("time",     None)
+        nc.createDimension("species",  N_SPECIES)
+        nc.createDimension("fleet",    N_FLEET)
+        nc.createDimension("lat",      N_LAT)
+        nc.createDimension("lon",      N_LON)
+        nc.createDimension("market",   N_MARKET)
+        nc.createDimension("category", N_CATEGORY)
+
+        # Time coordinate (CF-convention: numeric seconds since epoch)
+        time_var = nc.createVariable("time", "f8", ("time",))
+        time_var.units    = "seconds since 1970-01-01 00:00:00"
+        time_var.calendar = "gregorian"
+        epoch     = datetime(1970, 1, 1)
+        time_vals = np.array([(t - epoch).total_seconds() for t in self.time_list], dtype=np.float64)
+        time_var[:] = time_vals
+
+        # Spatial coordinate variables
+        lat_var     = nc.createVariable("lat", "f4", ("lat",))
+        lat_var[:]  = self.lat_values.astype(np.float32)
+        lon_var     = nc.createVariable("lon", "f4", ("lon",))
+        lon_var[:]  = self.lon_values.astype(np.float32)
+
+        # Label / lookup variables (variable-length strings)
+        def _str_var(name, dim, values):
+            v = nc.createVariable(name, str, (dim,))
+            v[:] = np.array(values, dtype=object)
+
+        _str_var("species_code",        "species",  self.species_codes)
+        _str_var("species_life_stage",  "species",  self.species_stages)
+        _str_var("market_code",         "market",   self.market_codes)
+        _str_var("price_category_code", "category", self.category_codes)
+        _str_var("fleet_gear_code",     "fleet",    self.fleet_gear_codes)
+        _str_var("fleet_country_code",  "fleet",    self.fleet_country_codes)
+
+        # Large spatial variables — defined here but written one time slice at
+        # a time in UpdateBiomassStatistics / UpdateCatchDispositionStatistics
+        chunksizes_5d = self._optimal_chunksizes((N_TIME, N_SPECIES, N_FLEET, N_LAT, N_LON))
+        chunksizes_4d = self._optimal_chunksizes((N_TIME, N_SPECIES, N_LAT, N_LON))
+
+        self._nc_gross_catch = nc.createVariable(
+            "gross_catch", "f4", ("time", "species", "fleet", "lat", "lon"),
+            fill_value=self.fill_value, chunksizes=chunksizes_5d, zlib=True, complevel=1)
+        self._nc_gross_catch.units = self.mass_unit
+
+        self._nc_live_discards = nc.createVariable(
+            "live_discards", "f4", ("time", "species", "fleet", "lat", "lon"),
+            fill_value=self.fill_value, chunksizes=chunksizes_5d, zlib=True, complevel=1)
+        self._nc_live_discards.units = self.mass_unit
+
+        self._nc_dead_discards = nc.createVariable(
+            "dead_discards", "f4", ("time", "species", "fleet", "lat", "lon"),
+            fill_value=self.fill_value, chunksizes=chunksizes_5d, zlib=True, complevel=1)
+        self._nc_dead_discards.units = self.mass_unit
+
+        self._nc_biomass = nc.createVariable(
+            "biomass", "f4", ("time", "species", "lat", "lon"),
+            fill_value=self.fill_value, chunksizes=chunksizes_4d, zlib=True, complevel=1)
+        self._nc_biomass.units = self.mass_unit
+
+        nc.sync()
+        logging.info(f"NetCDF4 file opened for incremental writes: {self.output_location}")
+
+    def _finalize_netcdf_file(self):
+        """Write remaining in-memory (small) variables to the open NetCDF4 file
+        and close it."""
+        nc = self._nc_file
+
+        def _make_float_var(name, dims, data, units=None):
+            chunks = self._optimal_chunksizes(data.shape)
+            v = nc.createVariable(name, "f4", dims,
+                fill_value=self.fill_value, chunksizes=chunks, zlib=True, complevel=1)
+            if units:
+                v.units = units
+            v[:] = data
+
+        _make_float_var("gross_catch_total",   ("time", "species", "fleet"), self.gross_total_data,   units=self.mass_unit)
+        _make_float_var("live_discards_total", ("time", "species", "fleet"), self.live_total_data,    units=self.mass_unit)
+        _make_float_var("dead_discards_total", ("time", "species", "fleet"), self.dead_total_data,    units=self.mass_unit)
+        _make_float_var("biomass_total",       ("time", "species"),          self.biomass_total_data, units=self.mass_unit)
+        _make_float_var("price",               ("time", "species", "market", "category"), self.price_data,         units="EUR")
+        _make_float_var("sales_value",         ("time", "species", "fleet", "market"),   self.sales_value_data,   units="EUR")
+        _make_float_var("sales_quantity",      ("time", "species", "fleet", "market"),   self.sales_quantity_data, units="kg")
+        _make_float_var("fishing_activity",    ("time", "fleet"),            self.fishing_activity_data)
+
+        # Stock assessment (optional — year dimension created on demand)
+        if self._stock_assessment_records:
+            sa_years = sorted(set(r[0] for r in self._stock_assessment_records))
+            N_YEAR   = len(sa_years)
+            N_SP     = len(self.species_pairs)
+            stock_status_arr = np.full((N_YEAR, N_SP), np.nan, dtype=np.float32)
+            exploitation_arr = np.full((N_YEAR, N_SP), np.nan, dtype=np.float32)
+            for year, sp_idx, ss, expl in self._stock_assessment_records:
+                y_idx = sa_years.index(year)
+                stock_status_arr[y_idx, sp_idx] = ss
+                exploitation_arr[y_idx, sp_idx] = expl
+
+            nc.createDimension("year", N_YEAR)
+            year_var     = nc.createVariable("year", "i4", ("year",))
+            year_var[:]  = np.array(sa_years, dtype=np.int32)
+
+            sv = nc.createVariable("stock_status", "f4", ("year", "species"),
+                fill_value=self.fill_value, zlib=True, complevel=1)
+            sv[:] = stock_status_arr
+            ev = nc.createVariable("exploitation", "f4", ("year", "species"),
+                fill_value=self.fill_value, zlib=True, complevel=1)
+            ev[:] = exploitation_arr
+
+        nc.sync()
+        nc.close()
+        self._nc_file = None
+        logging.info("NetCDF4 file finalised and closed.")
 
     def _release_memory(self):
         """Drop references to large in-memory buffers so Python can reclaim memory."""
+        # Close any still-open NetCDF4 file handle (safety net in case finalise failed)
+        if getattr(self, "_nc_file", None) is not None:
+            try:
+                self._nc_file.close()
+            except Exception:
+                pass
+            self._nc_file = None
+
         large_buffer_attributes = [
             "gross_data",
             "live_data",
