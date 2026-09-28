@@ -10,7 +10,7 @@ The OutputCreator is written in **Python**. The recommended IDE for development 
 
 ### Licence
 
-The code is licenced under the **GNU General Public License v3.0 (GPL-3.0)**. See the `LICENSE` file in the root of the repository for the full licence text.
+The code is licenced under the **EUROPEAN UNION PUBLIC LICENCE v. 1.2 (EUPL-1.2)**. See the `LICENSE` file in the root of the repository for the full licence text.
 
 ---
 
