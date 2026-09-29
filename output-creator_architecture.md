@@ -28,7 +28,7 @@ This is a Python project — there are no compiled binaries. The single build ou
 
 | Artifact | Description |
 |---|---|
-| `ghcr.io/official-ewe/surimioutputcreator:latest` | The containerised gRPC server. Built from the `Dockerfile` in the repository root and pushed to the GitHub Container Registry (GHCR) by the CI/CD pipeline on every push to `master`. |
+| `ghcr.io/surimi-project/surimioutputcreator:latest` | The containerised gRPC server. Built from the `Dockerfile` in the repository root and pushed to the GitHub Container Registry (GHCR) by the CI/CD pipeline on every push to `master`. |
 
 ---
 
@@ -369,7 +369,7 @@ The GitHub Actions workflow (`.github/workflows/docker.yml`) triggers on every p
 1. Checks out the repository.
 2. Logs in to the **GitHub Container Registry (GHCR)** using the automatically provided `GITHUB_TOKEN` secret.
 3. Builds the Docker image from the `Dockerfile` in the repository root.
-4. Pushes the image to `ghcr.io/official-ewe/surimioutputcreator:latest`.
+4. Pushes the image to `ghcr.io/surimi-project/surimioutputcreator:latest`.
 
 There are currently no automated test steps in the CI pipeline. Integration tests must be run locally (see [Testing](#testing)).
 
@@ -448,7 +448,7 @@ SURIMI-output-creator/
 
 ## Source control
 
-The repository is hosted on **GitHub** at `github.com/Official-EwE/SURIMI-output-creator` and uses **Git** for version control.
+The repository is hosted on **GitHub** at `github.com/surimi-project/SURIMI-output-creator` and uses **Git** for version control.
 
 There are no Git submodules. The gRPC/protobuf stubs are not vendored into the repository — they are installed at runtime as a pip package (`surimi-surimi-protocol-grpc-python`) from the Buf Schema Registry. This means there are no `.proto` files in the repository.
 
@@ -478,7 +478,7 @@ The JSON files in `integration_tests/grpc_messages/` can be pasted directly into
 [Panoply](https://www.giss.nasa.gov/tools/panoply/) is a free cross-platform viewer from NASA GISS. It opens `.nc` files directly and renders lat/lon maps, time-series plots, and variable browsers with no configuration needed. It is the quickest way to do a sanity check on the spatial output.
 
 ### Jupyter Notebooks
-For programmatic analysis, the [SURIMI Jupyter Notebooks](https://github.com/Official-EwE/SURIMI-jupyter-notebooks) repository contains examples showing how to open the output file with `xarray`, plot time-series with `matplotlib`, and aggregate spatial variables. For example, to reproduce a `_total` variable from the spatial data:
+For programmatic analysis, the [SURIMI Jupyter Notebooks](https://github.com/surimi-project/SURIMI-jupyter-notebooks) repository contains examples showing how to open the output file with `xarray`, plot time-series with `matplotlib`, and aggregate spatial variables. For example, to reproduce a `_total` variable from the spatial data:
 
 ```python
 import xarray as xr

@@ -3,7 +3,7 @@ This is the OutputCreator repo.
 It holds the source code of the SURIMI OutputCreator
 
 ## gRPC interface in Buf Schema Registry
-The gRPC interface is descibed by  protobuf files that are stored in https://github.com/Official-EwE/SURIMI-protocol
+The gRPC interface is descibed by  protobuf files that are stored in https://github.com/surimi-project/SURIMI-protocol
 So there are no proto files in the project!
 
 The proto files are also stored in  https://buf.build/surimi/surimi-protocol
