@@ -19,7 +19,8 @@ The code is licenced under the **EUROPEAN UNION PUBLIC LICENCE v. 1.2 (EUPL-1.2)
 - Accept and validate experiment lifecycle messages (`InitialiseExperiment`, `ExperimentStep`, `FinaliseExperiment`, `CancelExperiment`).
 - Receive statistics messages from the simulation each simulated month and record them to a binary file on disk.
 - After finalisation, spawn a subprocess that reads the binary file and writes a NetCDF4 output file.
-- Upload the finished output files to an S3 bucket.
+- Upload the finished NetCDF4 output file (`.nc`) to an S3 bucket.
+- Delete local experiment artifacts after a successful S3 upload to prevent pod disk growth.
 - Expose gRPC reflection so that tools like Postman can discover available methods automatically.
 
 ### Build outputs
@@ -301,7 +302,11 @@ Logging is configured in `server/logging_formatter.py` using Python's standard `
 
 ## S3 bucket
 
-After the NetCDF4 file is written, `netcdf_worker_main.py` calls `S3_Storage.UploadFilesToS3(...)`, which uploads every file under `experiments/{experiment_id}/` to the S3 path `output_creator/experiments/{experiment_id}/`. This includes both the binary recording file (`.bin`) and the finished NetCDF file (`.nc`).
+After the NetCDF4 file is written, `netcdf_worker_main.py` calls `S3_Storage.UploadFilesToS3(...)` and uploads only `.nc` files from `experiments/{experiment_id}/` to the S3 path `output_creator/experiments/{experiment_id}/`.
+
+The binary recording file (`.bin`) is intentionally excluded from S3 uploads.
+
+If upload succeeds, the worker deletes the local `experiments/{experiment_id}/` directory (which contains both `.nc` and `.bin`) to reclaim ephemeral pod storage. If upload fails, files are kept locally for troubleshooting or retry.
 
 ### S3 bucket authentication
 
@@ -323,7 +328,9 @@ The credentials themselves are loaded from HashiCorp Vault at startup via `Vault
 
 ## Kubernetes
 
-The Output Creator is deployed as a **Docker container** inside the **EDITO Datalab Kubernetes cluster**. The container listens on port `5189` for gRPC traffic. Both the binary recording file and the finished NetCDF file are written to the pod's local ephemeral filesystem during processing; once the upload to S3 is complete, the files are no longer needed and will be lost when the pod is recycled.
+The Output Creator is deployed as a **Docker container** inside the **EDITO Datalab Kubernetes cluster**. The container listens on port `5189` for gRPC traffic. Both the binary recording file and the finished NetCDF file are written to the pod's local ephemeral filesystem during processing.
+
+On successful S3 upload, the worker removes the local experiment directory immediately. On failed upload, local files remain so they can be inspected or retried.
 
 ```mermaid
 flowchart LR
@@ -336,7 +343,7 @@ flowchart LR
 
     OC -- "writes during experiment" --> BIN
     OC -- "subprocess writes after finalise" --> NC
-    NC -- "boto3 upload" --> S3
+    NC -- "boto3 upload (.nc only)" --> S3
 ```
 
 ---

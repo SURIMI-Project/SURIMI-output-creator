@@ -80,6 +80,21 @@ Type
 ## .env file
 This file contains the environment variables that are used in the project. It is located in the root of the repository. The file is not included in the repository for security reasons. You have to create it yourself.
 
+## Experiment output lifecycle (local disk and S3)
+During a run, each experiment writes files to `experiments/<experiment_id>/` in the running container.
+
+- `<experiment_id>.bin`: binary recording of incoming statistics messages
+- `<experiment_id>.nc`: final NetCDF output generated after `FinaliseExperiment`
+
+After NetCDF generation, the worker uploads only the `.nc` file to S3 under:
+
+- `output_creator/experiments/<experiment_id>/`
+
+The `.bin` file is not uploaded.
+
+If the S3 upload succeeds, the local experiment directory is deleted to avoid filling the pod filesystem with completed experiment artifacts.
+If the upload fails, local files are kept so the upload can be retried.
+
 
 # SURIMI
 

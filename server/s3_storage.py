@@ -6,14 +6,24 @@ import boto3
 class S3_Storage:
     @staticmethod
     def UploadFilesToS3(source_directory, destination_directory):
+        """
+        Upload NetCDF output files from a local experiment directory to S3.
+
+        Only files with a .nc extension are uploaded. This intentionally skips
+        recorder artifacts such as .bin files.
+
+        Returns:
+            bool: True when at least one .nc file was uploaded successfully,
+            otherwise False.
+        """
 
         if not os.environ.get('AWS_BUCKET_NAME'):
             logging.error("AWS_BUCKET_NAME environment variable not set. Aborting S3 upload.")
-            return
+            return False
 
         if not os.environ.get('AWS_ACCESS_KEY_ID'):
             logging.error("AWS_ACCESS_KEY_ID environment variable not set. Aborting S3 upload.")
-            return
+            return False
 
         bucket_name = os.environ.get('AWS_BUCKET_NAME') 
 
@@ -28,11 +38,14 @@ class S3_Storage:
 
         logging.info(f"Using S3 bucket: {bucket_name} and S3 directory: {destination_directory} and local output directory: {source_directory}")
 
+        uploaded_file_count = 0
         try:
             for root, dirs, files in os.walk(source_directory):
                 for file in files:
-                    # if file.endswith(".bin"):
-                    #     continue  # Skip .bin files
+                    # Only publish the final NetCDF output to object storage.
+                    if not file.endswith(".nc"):
+                        continue
+
                     logging.info(f"Uploading {file} from {root} to S3...")
                     local_path = Path(root) / file
                     # Compute the S3 key by replacing the local_sim_dir part with s3_sim_dir
@@ -40,8 +53,17 @@ class S3_Storage:
                     s3_key = f"{destination_directory}/{relative_path.as_posix()}"
                     logging.info(f"Upload {local_path} to s3://{bucket_name}/{s3_key}")
                     s3.upload_file(str(local_path), bucket_name, s3_key)
+                    uploaded_file_count += 1
+
+            if uploaded_file_count == 0:
+                logging.error(f"No NetCDF (.nc) files found in {source_directory}. Nothing was uploaded to S3.")
+                return False
+
+            logging.info(f"Uploaded {uploaded_file_count} NetCDF file(s) to s3://{bucket_name}/{destination_directory}")
+            return True
         except Exception as e:
             logging.error(f"Error uploading files to S3: {e}")
+            return False
 
     @staticmethod
     def DownloadFilesFromS3(source_directory, destination_directory):
