@@ -1,4 +1,5 @@
 import logging
+import shutil
 import sys
 import traceback
 from datetime import datetime
@@ -10,6 +11,11 @@ from surimi.v1 import simulation_pb2
 from server.s3_storage import S3_Storage
 
 def main():
+    """Generate NetCDF output for one experiment, upload it, and clean up local files.
+
+    The local experiment directory is removed only after a successful upload so
+    failed uploads can be retried from local artifacts.
+    """
     configure_logging()
     experiment_id = sys.argv[1]     # The experiment ID is passed as the first command-line argument
     experiment_path = sys.argv[2]   # The path to the binary file containing the recorded protobuf messages for this experiment is passed as the second command-line argument
@@ -30,7 +36,14 @@ def main():
         output.finalise()
 
         simulation_dir = Path(__file__).parent.parent / "experiments" / experiment_id
-        S3_Storage.UploadFilesToS3(str(simulation_dir), f"output_creator/experiments/{experiment_id}")
+        upload_succeeded = S3_Storage.UploadFilesToS3(str(simulation_dir), f"output_creator/experiments/{experiment_id}")
+
+        if upload_succeeded:
+            # Safe cleanup point: output is now durable in object storage.
+            shutil.rmtree(simulation_dir)
+            logging.info(f"Deleted local experiment directory after successful S3 upload: {simulation_dir}")
+        else:
+            logging.warning(f"Keeping local experiment directory because S3 upload did not complete successfully: {simulation_dir}")
 
         logging.info(f"Finished experiment {experiment_id}")
 
